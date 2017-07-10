@@ -1,0 +1,27 @@
+<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>0.0.4</Version>
+    <TargetFramework>netstandard1.6</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Fable.EdIlyin.Core/Basics.fs" />
+    <Compile Include="Fable.EdIlyin.Core/Debug.fs" />
+    <Compile Include="Fable.EdIlyin.Core/Result.fs" />
+    <Compile Include="Fable.EdIlyin.Core/Decode.fs" />
+    <Compile Include="Fable.EdIlyin.Core/Json/Decode.fs" />
+    <Compile Include="Fable.EdIlyin.Core/Json/Encode.fs" />
+    <Compile Include="Fable.EdIlyin.Core/Async.fs" />
+    <Compile Include="Fable.EdIlyin.Core/AsyncResult.fs" />
+    <Compile Include="Fable.EdIlyin.Core/Queue.fs" />
+    <Compile Include="Fable.EdIlyin.Core/Throttle.fs" />
+    <Compile Include="Fable.EdIlyin.Core/Http/Fetch.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="*.fsproj" PackagePath="fable\" />
+    <Content Include="Fable.EdIlyin.Core\" PackagePath="fable\Fable.EdIlyin.Core\" />
+  </ItemGroup>
+  <Import Project=".paket\Paket.Restore.targets" />
+</Project>

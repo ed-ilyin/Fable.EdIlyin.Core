@@ -1,0 +1,7 @@
+source https://nuget.org/api/v2
+
+nuget Fable.PowerPack
+nuget FSharp.Core
+nuget Fable.Core
+nuget FSharp.NET.Sdk
+clitool dotnet-fable
