@@ -55,10 +55,16 @@ let body model (agent: MailboxProcessor<_>) =
     loop model
 
 
-let agent quantity millisecond =
-    body
-        {   quantity = quantity
-            millisecond = millisecond
-            queue = Queue.empty
-        }
-        |> MailboxProcessor.Start
+let start quantity millisecond =
+    let agent =
+        body
+            {   quantity = quantity
+                millisecond = millisecond
+                queue = Queue.empty
+            }
+            |> MailboxProcessor.Start
+
+    let innerFn func =
+        agent.PostAndAsyncReply (fun reply -> Fetch (func, reply))
+
+    innerFn
