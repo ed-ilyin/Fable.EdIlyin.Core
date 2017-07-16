@@ -20,7 +20,7 @@
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="." PackagePath="fable\Fable.EdIlyin.Core\" />
+    <Content Include=".\" PackagePath="fable\Fable.EdIlyin.Core\" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

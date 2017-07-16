@@ -7,32 +7,28 @@ open Fable.EdIlyin.Core.Async
 type Model =
     {   quantity: int
         millisecond: int
-        queue: int Queue.queue
+        queue: float Queue.queue
     }
 
 
-and Msg<'a> =
+type Msg<'a> =
     | Die
     | Fetch of (unit -> 'a) * AsyncReplyChannel<'a>
 
 
 let nowMilliseconds () =
     let milliseconds = DateTime.Now.Ticks |> TimeSpan
-    int milliseconds.TotalMilliseconds
+    milliseconds.TotalMilliseconds
 
 
 let private execute func (channel: AsyncReplyChannel<_>) model =
-    // do printfn "preexecuting... %A" model
     do func () |> channel.Reply
-
     {model with queue = nowMilliseconds () |> Queue.push model.queue}
-        // |> Debug.log "executed"
 
 
 let private fetch model func channel =
     match Queue.length model.queue with
-        | l when l < model.quantity ->
-            async.Return model
+        | l when l < model.quantity -> async.Return model
 
         | _ ->
             match Queue.pull model.queue with
@@ -41,6 +37,7 @@ let private fetch model func channel =
                 | Some (was, tail) ->
                     nowMilliseconds ()
                         - was
+                        |> int
                         |> (-) model.millisecond
                         |> Async.Sleep
                         |>> fun _ -> { model with queue = tail }
@@ -72,3 +69,6 @@ let start quantity millisecond =
 let add (throttler: MailboxProcessor<_>) func =
     throttler.PostAndAsyncReply (fun channel -> Fetch (func, channel))
 
+
+let stop (throttler: MailboxProcessor<_>) =
+    throttler.Post (fun _ -> Die)

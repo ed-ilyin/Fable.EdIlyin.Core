@@ -7,7 +7,7 @@ open Fable.Import
 open Fable.PowerPack
 
 
-let inline equal (expected: 'T) (actual: 'T): unit =
+let equal (expected: 'T) (actual: 'T): unit =
     let assert' = importAll<obj> "assert"
     assert'?deepStrictEqual(actual, expected) |> ignore
 
@@ -45,22 +45,23 @@ let multipleFunTest func () =
 
     async {
         let! times =
-            List.init quantity (fun _ -> func throttler)
+            List.init quantity
+                (fun _ -> Throttle.add throttler |> func)
                 |> Async.Parallel
 
         let results =
             times
                 // |> Debug.log "times"
                 |> Array.pairwise
-                |> Array.map (fun (x,y) -> y - x)
+                |> Array.map (fun (x,y) -> y - x |> int)
                 // |> Debug.log "diffs"
                 |> Seq.map2 (fun (f, t) x -> f <= x && x <= t)
                     (
                         let rec loop () =
                             seq {
-                                yield (0, 0)
-                                yield (0, 10)
-                                yield (90, 110)
+                                yield 0, 0
+                                yield 0, 10
+                                yield 90, 110
                                 yield! loop ()
                             }
                         loop ()
@@ -74,36 +75,34 @@ let multipleFunTest func () =
 
 it "throttle: multiple simple functions"
     <| multipleFunTest
-        (fun throttler ->
-            Throttle.add throttler Throttle.nowMilliseconds
-        )
+        (fun throttle -> throttle Throttle.nowMilliseconds)
 
 
 it "throttle: multiple async functions"
     <| multipleFunTest
-        (fun throttler ->
+        (fun throttle ->
             let func x = async { return Throttle.nowMilliseconds x }
             async {
-                let! x = Throttle.add throttler func
+                let! x = throttle func
                 return! x
             }
         )
 
 
-// it "throttle: couple of different functions" <| fun () ->
-//     let agent = Throttle.processor 4 100
-//     let inline fetch func channel = Throttle.Fetch (func, channel)
+type Result = | Int of int | String of string
 
-//     let inline throttle func =
-//         agent.PostAndAsyncReply (fetch func)
 
-//     let x1, x2 = 42, "thirty two"
-//     let func1 () = x1
-//     let func2 () = x2
+it "throttle: couple of different functions" <| fun () ->
+    let throttler = Throttle.start 4 100
+    let throttle = Throttle.add throttler
 
-//     async {
-//         let! result1 = throttle func1
-//         let! result2 = throttle func2
-//         return equal (x1, x2) (result1, result2)
-//     }
-//         |> Async.StartAsPromise
+    let x1, x2 = 42, "thirty two"
+    let func1 () = x1
+    let func2 () = x2
+
+    async {
+        let! result1 = func1 >> Int |> throttle
+        let! result2 = func2 >> String |> throttle
+        return equal (Int x1, String x2) (result1, result2)
+    }
+        |> Async.StartAsPromise

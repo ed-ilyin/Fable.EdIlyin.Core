@@ -1865,6 +1865,18 @@ class AsyncBuilder {
 }
 const singleton$3 = new AsyncBuilder();
 
+function op_GreaterGreaterEquals(asyn, func) {
+  return singleton$3.Bind(asyn, func);
+}
+function map$3(func, asyn) {
+  return op_GreaterGreaterEquals(asyn, $var1 => function (arg00) {
+    return singleton$3.Return(arg00);
+  }(func($var1)));
+}
+function op_BarGreaterGreater(asyn, func) {
+  return map$3(func, asyn);
+}
+
 function emptyContinuation(x) {
     // NOP
 }
@@ -2053,7 +2065,7 @@ function nowMilliseconds() {
     let copyOfStruct = now();
     return ticks$1(copyOfStruct);
   })());
-  return ~~milliseconds$$1 | 0;
+  return milliseconds$$1;
 }
 
 function execute(func, channel, model) {
@@ -2066,7 +2078,9 @@ function execute(func, channel, model) {
 }
 
 function _fetch(model, func, channel) {
-  return singleton$3.Bind((() => {
+  return map$3(function (model_1) {
+    return execute(func, channel, model_1);
+  }, (() => {
     const matchValue = length(model.queue) | 0;
 
     if (matchValue < model.quantity) {
@@ -2075,28 +2089,22 @@ function _fetch(model, func, channel) {
       const matchValue_1 = pull(model.queue);
 
       if (matchValue_1 != null) {
-        const was = matchValue_1[0] | 0;
+        const was = matchValue_1[0];
         const tail = matchValue_1[1];
-        return singleton$3.Bind(sleep(model.millisecond - (nowMilliseconds() - was)), $var1 => function (arg00) {
-          return singleton$3.Return(arg00);
-        }(function () {
+        return op_BarGreaterGreater(sleep(model.millisecond - ~~(nowMilliseconds() - was)), function () {
           return new Model(model.quantity, model.millisecond, tail);
-        }($var1)));
+        });
       } else {
         return singleton$3.Return(model);
       }
     }
-  })(), $var2 => function (arg00_1) {
-    return singleton$3.Return(arg00_1);
-  }(function (model_1) {
-    return execute(func, channel, model_1);
-  }($var2)));
+  })());
 }
 
 function body(model, agent) {
   const loop = function (state) {
-    return singleton$3.Bind(agent.receive(), function (_arg1) {
-      return _arg1.tag === 1 ? singleton$3.Bind(_fetch(state, _arg1.data[0], _arg1.data[1]), loop) : singleton$3.Zero();
+    return op_GreaterGreaterEquals(agent.receive(), function (_arg1) {
+      return _arg1.tag === 1 ? op_GreaterGreaterEquals(_fetch(state, _arg1.data[0], _arg1.data[1]), loop) : singleton$3.Zero();
     });
   };
 
@@ -2119,6 +2127,10 @@ function add(throttler, func) {
   });
 }
 
+function equal(expected, actual) {
+  const assert_ = assert;
+  assert_.deepStrictEqual(actual, expected);
+}
 it("throttle: simple function", function () {
   const throttler = start(1, 1000);
 
@@ -2131,10 +2143,7 @@ it("throttle: simple function", function () {
   }(function (builder_) {
     return builder_.Delay(function () {
       return builder_.Bind(add(throttler, func), function (_arg1) {
-        return builder_.Return((() => {
-          const assert_ = assert;
-          assert_.deepStrictEqual(_arg1, 42);
-        })());
+        return builder_.Return(equal(42, _arg1));
       });
     });
   }(singleton$3));
@@ -2156,10 +2165,7 @@ it("throttle: async function", function () {
     return builder__2.Delay(function () {
       return builder__2.Bind(add(throttler_1, func_1), function (_arg1_1) {
         return builder__2.Bind(_arg1_1, function (_arg2) {
-          return builder__2.Return((() => {
-            const assert__1 = assert;
-            assert__1.deepStrictEqual(_arg2, 42);
-          })());
+          return builder__2.Return(equal(42, _arg2));
         });
       });
     });
@@ -2172,7 +2178,9 @@ function multipleFunTest(func_2, unitVar1) {
   }(function (builder__3) {
     return builder__3.Delay(function () {
       return builder__3.Bind(parallel(initialize(22, function (_arg1_2) {
-        return func_2(throttler_2);
+        return func_2(function (func_3) {
+          return add(throttler_2, func_3);
+        });
       })), function (_arg1_3) {
         const results = map2(function (tupledArg, x) {
           return tupledArg[0] <= x ? x <= tupledArg[1] : false;
@@ -2191,20 +2199,19 @@ function multipleFunTest(func_2, unitVar1) {
 
           return loop();
         })(), Int32Array.from(map$2(function (tupledArg_1) {
-          return tupledArg_1[1] - tupledArg_1[0];
+          return ~~(tupledArg_1[1] - tupledArg_1[0]);
         }, Array.from(pairwise(_arg1_3)))));
-        const assert__2 = assert;
-        assert__2.deepStrictEqual(results, initialize$1(22 - 1, function (_arg2_1) {
+        equal(initialize$1(22 - 1, function (_arg2_1) {
           return true;
-        }));
+        }), results);
         return builder__3.Zero();
       });
     });
   }(singleton$3));
 }
 it("throttle: multiple simple functions", (() => {
-  const func_2 = function (throttler_2) {
-    return add(throttler_2, function () {
+  const func_2 = function (throttle) {
+    return throttle(function () {
       return nowMilliseconds();
     });
   };
@@ -2214,7 +2221,7 @@ it("throttle: multiple simple functions", (() => {
   };
 })());
 it("throttle: multiple async functions", (() => {
-  const func_4 = function (throttler_3) {
+  const func_4 = function (throttle_1) {
     const func_3 = function () {
       return function (builder__3) {
         return builder__3.Delay(function () {
@@ -2225,7 +2232,7 @@ it("throttle: multiple async functions", (() => {
 
     return function (builder__4) {
       return builder__4.Delay(function () {
-        return builder__4.Bind(add(throttler_3, func_3), function (_arg1_2) {
+        return builder__4.Bind(throttle_1(func_3), function (_arg1_2) {
           return builder__4.ReturnFrom(_arg1_2);
         });
       });
@@ -2236,3 +2243,60 @@ it("throttle: multiple async functions", (() => {
     return multipleFunTest(func_4, null);
   };
 })());
+class Result {
+  constructor(tag, data) {
+    this.tag = tag;
+    this.data = data;
+  }
+
+  [FSymbol.reflection]() {
+    return {
+      type: "ThrottleTests.Result",
+      interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
+      cases: [["Int", "number"], ["String", "string"]]
+    };
+  }
+
+  Equals(other) {
+    return this === other || this.tag === other.tag && equals(this.data, other.data);
+  }
+
+  CompareTo(other) {
+    return compareUnions(this, other) | 0;
+  }
+
+}
+setType("ThrottleTests.Result", Result);
+it("throttle: couple of different functions", function () {
+  const throttler_2 = start(4, 100);
+
+  const throttle_2 = function (func_5) {
+    return add(throttler_2, func_5);
+  };
+
+  const patternInput = [42, "thirty two"];
+
+  const func1 = function () {
+    return patternInput[0] | 0;
+  };
+
+  const func2 = function () {
+    return patternInput[1];
+  };
+
+  return function (arg00_2) {
+    return startAsPromise(arg00_2);
+  }(function (builder__5) {
+    return builder__5.Delay(function () {
+      return builder__5.Bind(throttle_2($var1 => function (arg0) {
+        return new Result(0, arg0);
+      }(func1($var1))), function (_arg1_3) {
+        return builder__5.Bind(throttle_2($var2 => function (arg0_1) {
+          return new Result(1, arg0_1);
+        }(func2($var2))), function (_arg2_1) {
+          return builder__5.Return(equal([new Result(0, patternInput[0]), new Result(1, patternInput[1])], [_arg1_3, _arg2_1]));
+        });
+      });
+    });
+  }(singleton$3));
+});
