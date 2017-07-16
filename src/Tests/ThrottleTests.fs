@@ -3,6 +3,8 @@ module ThrottleTests
 open Fable.Core
 open Fable.Core.JsInterop
 open Fable.EdIlyin.Core
+open Fable.Import
+open Fable.PowerPack
 
 
 let inline equal (expected: 'T) (actual: 'T): unit =
@@ -11,30 +13,97 @@ let inline equal (expected: 'T) (actual: 'T): unit =
 
 
 [<Global>]
-let it (msg: string) (f: unit->unit): unit = jsNative
+let it (msg: string) (f: unit->JS.Promise<'T>): unit = jsNative
 
 
 it "throttle: simple function" <| fun () ->
-    let result = ref 0
-    let throttle = Throttle.start 5 1000
+    let throttler = Throttle.start 1 1000
     let func () = 42
 
-    do async
-        {   let! x = throttle func
-            do result := x
-        }   |> Async.StartImmediate
-
-    equal !result 42
+    async {
+        let! x = Throttle.add throttler func
+        return equal 42 x
+    }
+        |> Async.StartAsPromise
 
 
 it "throttle: async function" <| fun () ->
-    let result = ref 0
-    let throttle = Throttle.start 5 1000
+    let throttler = Throttle.start 2 1000
     let func () = async {return 42}
 
-    do async
-        {   let! x = async.Bind (throttle func, id)
-            do result := x
-        }   |> Async.StartImmediate
+    async {
+        let! x = Throttle.add throttler func
+        let! y = x
+        return equal 42 y
+    }
+        |> Async.StartAsPromise
 
-    equal !result 42
+
+let multipleFunTest func () =
+    let throttler = Throttle.start 3 100
+    let quantity = 22
+
+    async {
+        let! times =
+            List.init quantity (fun _ -> func throttler)
+                |> Async.Parallel
+
+        let results =
+            times
+                // |> Debug.log "times"
+                |> Array.pairwise
+                |> Array.map (fun (x,y) -> y - x)
+                // |> Debug.log "diffs"
+                |> Seq.map2 (fun (f, t) x -> f <= x && x <= t)
+                    (
+                        let rec loop () =
+                            seq {
+                                yield (0, 0)
+                                yield (0, 10)
+                                yield (90, 110)
+                                yield! loop ()
+                            }
+                        loop ()
+                    )
+                // |> Debug.log "results"
+
+        do equal (Seq.init (quantity - 1) <| fun _ -> true) results
+    }
+        |> Async.StartAsPromise
+
+
+it "throttle: multiple simple functions"
+    <| multipleFunTest
+        (fun throttler ->
+            Throttle.add throttler Throttle.nowMilliseconds
+        )
+
+
+it "throttle: multiple async functions"
+    <| multipleFunTest
+        (fun throttler ->
+            let func x = async { return Throttle.nowMilliseconds x }
+            async {
+                let! x = Throttle.add throttler func
+                return! x
+            }
+        )
+
+
+// it "throttle: couple of different functions" <| fun () ->
+//     let agent = Throttle.processor 4 100
+//     let inline fetch func channel = Throttle.Fetch (func, channel)
+
+//     let inline throttle func =
+//         agent.PostAndAsyncReply (fetch func)
+
+//     let x1, x2 = 42, "thirty two"
+//     let func1 () = x1
+//     let func2 () = x2
+
+//     async {
+//         let! result1 = throttle func1
+//         let! result2 = throttle func2
+//         return equal (x1, x2) (result1, result2)
+//     }
+//         |> Async.StartAsPromise

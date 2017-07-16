@@ -407,6 +407,49 @@ class List$1 {
     }
 }
 
+function append$1(xs, ys) {
+    return delay(() => {
+        let firstDone = false;
+        const i = xs[Symbol.iterator]();
+        let iters = [i, null];
+        return unfold(() => {
+            let cur;
+            if (!firstDone) {
+                cur = iters[0].next();
+                if (!cur.done) {
+                    return [cur.value, iters];
+                }
+                else {
+                    firstDone = true;
+                    iters = [null, ys[Symbol.iterator]()];
+                }
+            }
+            cur = iters[1].next();
+            return !cur.done ? [cur.value, iters] : null;
+        }, iters);
+    });
+}
+
+
+
+
+
+
+function delay(f) {
+    return {
+        [Symbol.iterator]: () => f()[Symbol.iterator](),
+    };
+}
+
+
+
+
+
+
+
+
+
+
 function fold$1(f, acc, xs) {
     if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
         return xs.reduce(f, acc);
@@ -430,7 +473,9 @@ function fold$1(f, acc, xs) {
 
 
 
-
+function initialize$1(n, f) {
+    return delay(() => unfold((i) => i < n ? [f(i), i + 1] : null, 0));
+}
 
 
 
@@ -443,6 +488,113 @@ function fold$1(f, acc, xs) {
 
 // A export function 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
 
+function map$2(f, xs) {
+    return delay(() => unfold((iter) => {
+        const cur = iter.next();
+        return !cur.done ? [f(cur.value), iter] : null;
+    }, xs[Symbol.iterator]()));
+}
+
+function map2(f, xs, ys) {
+    return delay(() => {
+        const iter1 = xs[Symbol.iterator]();
+        const iter2 = ys[Symbol.iterator]();
+        return unfold(() => {
+            const cur1 = iter1.next();
+            const cur2 = iter2.next();
+            return !cur1.done && !cur2.done ? [f(cur1.value, cur2.value), null] : null;
+        });
+    });
+}
+
+
+
+
+
+
+
+
+
+function pairwise(xs) {
+    return skip(2, scan((last, next) => [last[1], next], [0, 0], xs));
+}
+
+
+
+
+
+
+
+
+
+function scan(f, seed, xs) {
+    return delay(() => {
+        const iter = xs[Symbol.iterator]();
+        return unfold((acc) => {
+            if (acc == null) {
+                return [seed, seed];
+            }
+            const cur = iter.next();
+            if (!cur.done) {
+                acc = f(acc, cur.value);
+                return [acc, acc];
+            }
+            return void 0;
+        }, null);
+    });
+}
+
+function singleton$2(y) {
+    return unfold((x) => x != null ? [x, null] : null, y);
+}
+function skip(n, xs) {
+    return {
+        [Symbol.iterator]: () => {
+            const iter = xs[Symbol.iterator]();
+            for (let i = 1; i <= n; i++) {
+                if (iter.next().done) {
+                    throw new Error("Seq has not enough elements");
+                }
+            }
+            return iter;
+        },
+    };
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function unfold(f, acc) {
+    return {
+        [Symbol.iterator]: () => {
+            return {
+                next: () => {
+                    const res = f(acc);
+                    if (res != null) {
+                        acc = res[1];
+                        return { done: false, value: res[0] };
+                    }
+                    return { done: true };
+                },
+            };
+        },
+    };
+}
+
 // ----------------------------------------------
 // These functions belong to Seq.ts but are
 // implemented here to prevent cyclic dependencies
@@ -451,7 +603,16 @@ function fold$1(f, acc, xs) {
 
 
 
-
+function initialize(n, f) {
+    if (n < 0) {
+        throw new Error("List length must be non-negative");
+    }
+    let xs = new List$1();
+    for (let i = 1; i <= n; i++) {
+        xs = new List$1(f(n - i), xs);
+    }
+    return xs;
+}
 
 
 
@@ -1493,8 +1654,27 @@ const MAX_UNSIGNED_VALUE = fromBits(0xFFFFFFFF | 0, 0xFFFFFFFF | 0, true);
  */
 const MIN_VALUE = fromBits(0, 0x80000000 | 0, false);
 
+function create$1(d = 0, h = 0, m = 0, s = 0, ms = 0) {
+    switch (arguments.length) {
+        case 1:
+            // ticks
+            return fromTicks(arguments[0]);
+        case 3:
+            // h,m,s
+            d = 0, h = arguments[0], m = arguments[1], s = arguments[2], ms = 0;
+            break;
+        default:
+            // d,h,m,s,ms
+            break;
+    }
+    return d * 86400000 + h * 3600000 + m * 60000 + s * 1000 + ms;
+}
+function fromTicks(ticks) {
+    return ticks.div(10000).toNumber();
+}
+
 /* tslint:disable */
-function parse$1(v, kind) {
+function parse$2(v, kind) {
     if (kind == null) {
         kind = typeof v === "string" && v.slice(-1) === "Z" ? 1 /* UTC */ : 2 /* Local */;
     }
@@ -1518,7 +1698,7 @@ function parse$1(v, kind) {
 
 
 function now() {
-    return parse$1();
+    return parse$2();
 }
 
 
@@ -1531,110 +1711,17 @@ function now() {
 
 
 
-function millisecond(d) {
-    return d.kind === 2 /* Local */ ? d.getMilliseconds() : d.getUTCMilliseconds();
-}
-
-// From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
-
-const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
-
-
-
-
-function toHex(value) {
-    return value < 0
-        ? "ff" + (16777215 - (Math.abs(value) - 1)).toString(16)
-        : value.toString(16);
-}
-function fsFormat(str, ...args) {
-    function formatOnce(str2, rep) {
-        return str2.replace(fsFormatRegExp, (_, prefix, flags, pad, precision, format) => {
-            switch (format) {
-                case "f":
-                case "F":
-                    rep = rep.toFixed(precision || 6);
-                    break;
-                case "g":
-                case "G":
-                    rep = rep.toPrecision(precision);
-                    break;
-                case "e":
-                case "E":
-                    rep = rep.toExponential(precision);
-                    break;
-                case "O":
-                    rep = toString(rep);
-                    break;
-                case "A":
-                    rep = toString(rep, true);
-                    break;
-                case "x":
-                    rep = toHex(Number(rep));
-                    break;
-                case "X":
-                    rep = toHex(Number(rep)).toUpperCase();
-                    break;
-            }
-            const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep, 10) >= 0;
-            pad = parseInt(pad, 10);
-            if (!isNaN(pad)) {
-                const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
-                rep = padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
-            }
-            const once = prefix + (plusPrefix ? "+" + rep : rep);
-            return once.replace(/%/g, "%%");
-        });
-    }
-    if (args.length === 0) {
-        return (cont) => {
-            if (fsFormatRegExp.test(str)) {
-                return (...args2) => {
-                    let strCopy = str;
-                    for (const arg of args2) {
-                        strCopy = formatOnce(strCopy, arg);
-                    }
-                    return cont(strCopy.replace(/%%/g, "%"));
-                };
-            }
-            else {
-                return cont(str);
-            }
-        };
-    }
-    else {
-        for (const arg of args) {
-            str = formatOnce(str, arg);
-        }
-        return str.replace(/%%/g, "%");
-    }
-}
 
 
 
 
 
 
-
-
-function padLeft(str, len, ch, isRight) {
-    ch = ch || " ";
-    str = String(str);
-    len = len - str.length;
-    for (let i = 0; i < len; i++) {
-        str = isRight ? str + ch : ch + str;
-    }
-    return str;
-}
-
-function log(tag, x) {
-  ({
-    formatFn: fsFormat("%s: %A"),
-    input: "%s: %A"
-  }).formatFn(x => {
-    console.log(x);
-  })(tag, x);
-  return x;
+function ticks$1(d) {
+    return fromNumber(d.getTime())
+        .add(62135596800000) // UnixEpochMilliseconds
+        .sub(d.kind === 2 /* Local */ ? d.getTimezoneOffset() * 60 * 1000 : 0)
+        .mul(10000);
 }
 
 class Trampoline {
@@ -1778,19 +1865,12 @@ class AsyncBuilder {
 }
 const singleton$3 = new AsyncBuilder();
 
-function op_GreaterGreaterEquals(asyn, func) {
-  return singleton$3.Bind(asyn, func);
-}
-function op_BarGreaterGreater(asyn, func) {
-  return op_GreaterGreaterEquals(asyn, $var1 => function (arg00) {
-    return singleton$3.Return(arg00);
-  }(func($var1)));
-}
-
 function emptyContinuation(x) {
     // NOP
 }
-
+function awaitPromise(p) {
+    return fromContinuations((conts) => p.then(conts[0]).catch((err) => (err === "cancelled" ? conts[2] : conts[1])(err)));
+}
 
 const defaultCancellationToken = { isCancelled: false };
 
@@ -1798,7 +1878,9 @@ function fromContinuations(f) {
     return protectedCont((ctx) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
 }
 
-
+function parallel(computations) {
+    return awaitPromise(Promise.all(map$2((w) => startAsPromise(w), computations)));
+}
 function sleep(millisecondsDueTime) {
     return protectedCont((ctx) => {
         setTimeout(() => ctx.cancelToken.isCancelled ?
@@ -1824,6 +1906,9 @@ function startWithContinuations(computation, continuation, exceptionContinuation
         cancelToken: cancelToken ? cancelToken : defaultCancellationToken,
         trampoline,
     });
+}
+function startAsPromise(computation, cancellationToken) {
+    return new Promise((resolve, reject) => startWithContinuations(computation, resolve, reject, reject, cancellationToken ? cancellationToken : defaultCancellationToken));
 }
 
 class QueueCell {
@@ -1963,58 +2048,63 @@ class Msg {
 
 }
 setType("Fable.EdIlyin.Core.Throttle.Msg", Msg);
+function nowMilliseconds() {
+  const milliseconds$$1 = create$1((() => {
+    let copyOfStruct = now();
+    return ticks$1(copyOfStruct);
+  })());
+  return ~~milliseconds$$1 | 0;
+}
+
 function execute(func, channel, model) {
   (function (arg00) {
     channel.reply(arg00);
   })(func());
 
-  return log("executed", (() => {
-    const queue$$1 = push(model.queue, (() => {
-      let copyOfStruct = now();
-      return millisecond(copyOfStruct) | 0;
-    })());
-    return new Model(model.quantity, model.millisecond, queue$$1);
-  })());
+  const queue$$1 = push(model.queue, nowMilliseconds());
+  return new Model(model.quantity, model.millisecond, queue$$1);
 }
 
 function _fetch(model, func, channel) {
-  const matchValue = length(model.queue) | 0;
+  return singleton$3.Bind((() => {
+    const matchValue = length(model.queue) | 0;
 
-  if (matchValue < model.quantity) {
-    return singleton$3.Return(model);
-  } else {
-    return op_BarGreaterGreater((() => {
+    if (matchValue < model.quantity) {
+      return singleton$3.Return(model);
+    } else {
       const matchValue_1 = pull(model.queue);
 
       if (matchValue_1 != null) {
         const was = matchValue_1[0] | 0;
         const tail = matchValue_1[1];
-        return op_BarGreaterGreater(sleep(model.millisecond - ((() => {
-          let copyOfStruct = now();
-          return millisecond(copyOfStruct) | 0;
-        })() - was)), function () {
+        return singleton$3.Bind(sleep(model.millisecond - (nowMilliseconds() - was)), $var1 => function (arg00) {
+          return singleton$3.Return(arg00);
+        }(function () {
           return new Model(model.quantity, model.millisecond, tail);
-        });
+        }($var1)));
       } else {
         return singleton$3.Return(model);
       }
-    })(), function (model_1) {
-      return execute(func, channel, model_1);
-    });
-  }
+    }
+  })(), $var2 => function (arg00_1) {
+    return singleton$3.Return(arg00_1);
+  }(function (model_1) {
+    return execute(func, channel, model_1);
+  }($var2)));
 }
 
 function body(model, agent) {
   const loop = function (state) {
-    return op_GreaterGreaterEquals(agent.receive(), function (_arg1) {
-      return _arg1.tag === 1 ? op_GreaterGreaterEquals(_fetch(state, _arg1.data[0], _arg1.data[1]), loop) : singleton$3.Zero();
+    return singleton$3.Bind(agent.receive(), function (_arg1) {
+      return _arg1.tag === 1 ? singleton$3.Bind(_fetch(state, _arg1.data[0], _arg1.data[1]), loop) : singleton$3.Zero();
     });
   };
 
   return loop(model);
 }
+
 function start(quantity, millisecond$$1) {
-  const agent_1 = function (arg00) {
+  return function (arg00) {
     return start$2(arg00);
   }((() => {
     const model = new Model(quantity, millisecond$$1, empty());
@@ -2022,51 +2112,35 @@ function start(quantity, millisecond$$1) {
       return body(model, agent);
     };
   })());
-
-  const innerFn = function (func) {
-    return agent_1.postAndAsyncReply(function (reply) {
-      return new Msg(1, [func, reply]);
-    });
-  };
-
-  return innerFn;
+}
+function add(throttler, func) {
+  return throttler.postAndAsyncReply(function (channel) {
+    return new Msg(1, [func, channel]);
+  });
 }
 
 it("throttle: simple function", function () {
-  const result = {
-    contents: 0
-  };
-  const throttle = start(5, 1000);
+  const throttler = start(1, 1000);
 
   const func = function () {
     return 42;
   };
 
-  (function (arg00) {
-    startImmediate(arg00);
-  })(function (builder_) {
+  return function (arg00) {
+    return startAsPromise(arg00);
+  }(function (builder_) {
     return builder_.Delay(function () {
-      return builder_.Bind(throttle(func), function (_arg1) {
-        ({
-          formatFn: fsFormat("%i"),
-          input: "%i"
-        }).formatFn(x => {
-          console.log(x);
-        })(_arg1);
-        result.contents = _arg1 | 0;
-        return builder_.Zero();
+      return builder_.Bind(add(throttler, func), function (_arg1) {
+        return builder_.Return((() => {
+          const assert_ = assert;
+          assert_.deepStrictEqual(_arg1, 42);
+        })());
       });
     });
   }(singleton$3));
-
-  const assert_ = assert;
-  assert_.deepStrictEqual(42, result.contents);
 });
 it("throttle: async function", function () {
-  const result_1 = {
-    contents: 0
-  };
-  const throttle_1 = start(5, 1000);
+  const throttler_1 = start(2, 1000);
 
   const func_1 = function () {
     return function (builder__1) {
@@ -2076,19 +2150,89 @@ it("throttle: async function", function () {
     }(singleton$3);
   };
 
-  (function (arg00_1) {
-    startImmediate(arg00_1);
-  })(function (builder__2) {
+  return function (arg00_1) {
+    return startAsPromise(arg00_1);
+  }(function (builder__2) {
     return builder__2.Delay(function () {
-      return builder__2.Bind(singleton$3.Bind(throttle_1(func_1), function (x) {
-        return x;
-      }), function (_arg1_1) {
-        result_1.contents = _arg1_1 | 0;
-        return builder__2.Zero();
+      return builder__2.Bind(add(throttler_1, func_1), function (_arg1_1) {
+        return builder__2.Bind(_arg1_1, function (_arg2) {
+          return builder__2.Return((() => {
+            const assert__1 = assert;
+            assert__1.deepStrictEqual(_arg2, 42);
+          })());
+        });
       });
     });
   }(singleton$3));
-
-  const assert__1 = assert;
-  assert__1.deepStrictEqual(42, result_1.contents);
 });
+function multipleFunTest(func_2, unitVar1) {
+  const throttler_2 = start(3, 100);
+  return function (arg00_2) {
+    return startAsPromise(arg00_2);
+  }(function (builder__3) {
+    return builder__3.Delay(function () {
+      return builder__3.Bind(parallel(initialize(22, function (_arg1_2) {
+        return func_2(throttler_2);
+      })), function (_arg1_3) {
+        const results = map2(function (tupledArg, x) {
+          return tupledArg[0] <= x ? x <= tupledArg[1] : false;
+        }, (() => {
+          const loop = function () {
+            return delay(function () {
+              return append$1(singleton$2([0, 0]), delay(function () {
+                return append$1(singleton$2([0, 10]), delay(function () {
+                  return append$1(singleton$2([90, 110]), delay(function () {
+                    return loop();
+                  }));
+                }));
+              }));
+            });
+          };
+
+          return loop();
+        })(), Int32Array.from(map$2(function (tupledArg_1) {
+          return tupledArg_1[1] - tupledArg_1[0];
+        }, Array.from(pairwise(_arg1_3)))));
+        const assert__2 = assert;
+        assert__2.deepStrictEqual(results, initialize$1(22 - 1, function (_arg2_1) {
+          return true;
+        }));
+        return builder__3.Zero();
+      });
+    });
+  }(singleton$3));
+}
+it("throttle: multiple simple functions", (() => {
+  const func_2 = function (throttler_2) {
+    return add(throttler_2, function () {
+      return nowMilliseconds();
+    });
+  };
+
+  return function () {
+    return multipleFunTest(func_2, null);
+  };
+})());
+it("throttle: multiple async functions", (() => {
+  const func_4 = function (throttler_3) {
+    const func_3 = function () {
+      return function (builder__3) {
+        return builder__3.Delay(function () {
+          return builder__3.Return(nowMilliseconds());
+        });
+      }(singleton$3);
+    };
+
+    return function (builder__4) {
+      return builder__4.Delay(function () {
+        return builder__4.Bind(add(throttler_3, func_3), function (_arg1_2) {
+          return builder__4.ReturnFrom(_arg1_2);
+        });
+      });
+    }(singleton$3);
+  };
+
+  return function () {
+    return multipleFunTest(func_4, null);
+  };
+})());

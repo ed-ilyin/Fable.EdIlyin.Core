@@ -1,7 +1,10 @@
 module Fable.EdIlyin.Core.Async
 
 
-let (>>=) asyn func = async.Bind (asyn, func)
+let inline (>>=) asyn func = async.Bind (asyn, func)
 
 
-let (|>>) asyn func = asyn >>= (func >> async.Return)
+let inline map func asyn = asyn >>= (func >> async.Return)
+
+
+let inline (|>>) asyn func = map func asyn

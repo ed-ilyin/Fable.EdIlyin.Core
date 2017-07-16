@@ -16,34 +16,39 @@ and Msg<'a> =
     | Fetch of (unit -> 'a) * AsyncReplyChannel<'a>
 
 
-let execute func (channel: AsyncReplyChannel<_>) model =
+let nowMilliseconds () =
+    let milliseconds = DateTime.Now.Ticks |> TimeSpan
+    int milliseconds.TotalMilliseconds
+
+
+let private execute func (channel: AsyncReplyChannel<_>) model =
+    // do printfn "preexecuting... %A" model
     do func () |> channel.Reply
 
-    Debug.log "executed"
-        { model with
-            queue = Queue.push model.queue DateTime.Now.Millisecond
-        }
+    {model with queue = nowMilliseconds () |> Queue.push model.queue}
+        // |> Debug.log "executed"
 
 
-let fetch model func channel =
+let private fetch model func channel =
     match Queue.length model.queue with
-        | l when l < model.quantity -> async.Return model
+        | l when l < model.quantity ->
+            async.Return model
 
         | _ ->
             match Queue.pull model.queue with
                 | None -> async.Return model
 
                 | Some (was, tail) ->
-                    DateTime.Now.Millisecond
+                    nowMilliseconds ()
                         - was
                         |> (-) model.millisecond
                         |> Async.Sleep
                         |>> fun _ -> { model with queue = tail }
 
-        |>> execute func channel
+        |> Async.map (execute func channel)
 
 
-let body model (agent: MailboxProcessor<_>) =
+let private body model (agent: MailboxProcessor<_>) =
     let rec loop state =
         agent.Receive ()
             >>= function
@@ -56,15 +61,14 @@ let body model (agent: MailboxProcessor<_>) =
 
 
 let start quantity millisecond =
-    let agent =
-        body
-            {   quantity = quantity
-                millisecond = millisecond
-                queue = Queue.empty
-            }
-            |> MailboxProcessor.Start
+    body
+        {   quantity = quantity
+            millisecond = millisecond
+            queue = Queue.empty
+        }
+        |> MailboxProcessor.Start
 
-    let innerFn func =
-        agent.PostAndAsyncReply (fun reply -> Fetch (func, reply))
 
-    innerFn
+let add (throttler: MailboxProcessor<_>) func =
+    throttler.PostAndAsyncReply (fun channel -> Fetch (func, channel))
+
