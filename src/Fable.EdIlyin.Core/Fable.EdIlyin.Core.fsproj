@@ -1,6 +1,6 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>0.0.5</Version>
+    <Version>0.0.8</Version>
     <TargetFramework>netstandard1.6</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
@@ -20,7 +20,7 @@
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include=".\" PackagePath="fable\Fable.EdIlyin.Core\" />
+    <Content Include="*.fsproj; **\*.fs" PackagePath="fable\" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

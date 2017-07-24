@@ -89,7 +89,7 @@ it "throttle: multiple async functions"
         )
 
 
-type Result = | Int of int | String of string
+type DifferentResult = | Int of int | String of string
 
 
 it "throttle: couple of different functions" <| fun () ->

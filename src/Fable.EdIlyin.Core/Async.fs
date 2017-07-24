@@ -1,6 +1,9 @@
 module Fable.EdIlyin.Core.Async
 
 
+let andThen func asyn = async.Bind (asyn, func)
+
+
 let (>>=) asyn func = async.Bind (asyn, func)
 
 
