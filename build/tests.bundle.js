@@ -275,7 +275,9 @@ function compareRecords(x, y) {
         return 0;
     }
 }
-
+function equalsUnions(x, y) {
+    return x === y || (x.tag === y.tag && equals(x.data, y.data));
+}
 function compareUnions(x, y) {
     if (x === y) {
         return 0;
@@ -289,6 +291,31 @@ function compareUnions(x, y) {
 // tslint forbids non-arrow functions, but it's
 // necessary here to use the arguments object
 /* tslint:disable */
+
+class Result {
+    constructor(tag, data) {
+        this.tag = tag | 0;
+        this.data = data;
+    }
+    Equals(other) {
+        return equalsUnions(this, other);
+    }
+    CompareTo(other) {
+        return compareUnions(this, other);
+    }
+    [FSymbol.reflection]() {
+        return {
+            type: "Microsoft.FSharp.Core.FSharpResult",
+            interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
+            cases: [["Ok", Any], ["Error", Any]],
+        };
+    }
+}
+
+
+function bind(f, result) {
+    return result.tag === 0 ? f(result.data) : result;
+}
 
 // This module is split from List.ts to prevent cyclic dependencies
 
@@ -466,7 +493,13 @@ function fold$1(f, acc, xs) {
         return acc;
     }
 }
-
+function foldBack$1(f, xs, acc) {
+    const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs : Array.from(xs);
+    for (let i = arr.length - 1; i >= 0; i--) {
+        acc = f(arr[i], acc, i);
+    }
+    return acc;
+}
 
 
 
@@ -488,12 +521,13 @@ function initialize$1(n, f) {
 
 // A export function 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
 
-function map$2(f, xs) {
+function map$3(f, xs) {
     return delay(() => unfold((iter) => {
         const cur = iter.next();
         return !cur.done ? [f(cur.value), iter] : null;
     }, xs[Symbol.iterator]()));
 }
+
 
 function map2(f, xs, ys) {
     return delay(() => {
@@ -544,7 +578,7 @@ function scan(f, seed, xs) {
     });
 }
 
-function singleton$2(y) {
+function singleton$1(y) {
     return unfold((x) => x != null ? [x, null] : null, y);
 }
 function skip(n, xs) {
@@ -617,6 +651,7 @@ function initialize(n, f) {
 
 
 
+
 function reverse(xs) {
     return fold$1((acc, x) => new List$1(x, acc), new List$1(), xs);
 }
@@ -625,6 +660,132 @@ function reverse(xs) {
 /* ToDo: instance unzip() */
 
 /* ToDo: instance unzip3() */
+
+const Result$1 = function (__exports) {
+  const map2$$1 = __exports.map2 = function (fn, a, b) {
+    const matchValue = [a, b];
+
+    if (matchValue[0].tag === 1) {
+      return new Result(1, matchValue[0].data);
+    } else if (matchValue[1].tag === 1) {
+      return new Result(1, matchValue[1].data);
+    } else {
+      return new Result(0, fn(matchValue[0].data, matchValue[1].data));
+    }
+  };
+
+  const combineList = __exports.combineList = function (list) {
+    return (() => {
+      let folder;
+
+      const fn = function (e, l) {
+        return new List$1(e, l);
+      };
+
+      folder = function (a, b) {
+        return map2$$1(fn, a, b);
+      };
+
+      return function (state) {
+        return foldBack$1(folder, list, state);
+      };
+    })()(new Result(0, new List$1()));
+  };
+
+  const combineArray = __exports.combineArray = function (array) {
+    return fold$1((() => {
+      const fn = function (a, e) {
+        return function (array2) {
+          return a.concat(array2);
+        }(Array.from(singleton$1(e)));
+      };
+
+      return function (a_1, b) {
+        return map2$$1(fn, a_1, b);
+      };
+    })(), new Result(0, new Array(0)), array);
+  };
+
+  const ofOption = __exports.ofOption = function (error, option) {
+    if (option != null) {
+      return new Result(0, option);
+    } else {
+      return new Result(1, error);
+    }
+  };
+
+  const ofChoice = __exports.ofChoice = function (choice) {
+    if (choice.tag === 1) {
+      return new Result(1, choice.data);
+    } else {
+      return new Result(0, choice.data);
+    }
+  };
+
+  const fromResultResult = __exports.fromResultResult = function (resultResult) {
+    const $var1 = resultResult.tag === 1 ? [1, resultResult.data] : resultResult.data.tag === 1 ? [1, resultResult.data.data] : [0, resultResult.data.data];
+
+    switch ($var1[0]) {
+      case 0:
+        return new Result(0, $var1[1]);
+
+      case 1:
+        return new Result(1, $var1[1]);
+    }
+  };
+
+  const andThen = __exports.andThen = function () {
+    return function (binder, result) {
+      return bind(binder, result);
+    };
+  };
+
+  const Builder = __exports.Builder = class Builder {
+    [FSymbol.reflection]() {
+      return {
+        type: "Fable.EdIlyin.Core.Result.Builder",
+        properties: {}
+      };
+    }
+
+    constructor() {}
+
+    Bind(m, f) {
+      return bind(f, m);
+    }
+
+    Return(x) {
+      return new Result(0, x);
+    }
+
+    ReturnFrom(m) {
+      return m;
+    }
+
+  };
+  setType("Fable.EdIlyin.Core.Result.Builder", Builder);
+  return __exports;
+}({});
+const ResultAutoOpen = function (__exports) {
+  const result = __exports.result = new Result$1.Builder();
+  return __exports;
+}({});
+
+it("result: computation expression return", function () {
+  const assert_ = assert;
+  assert_.deepStrictEqual(function (builder_) {
+    return builder_.Bind(new Result(0, 42), function (_arg1) {
+      return builder_.Return(_arg1);
+    });
+  }(ResultAutoOpen.result), new Result(0, 42));
+});
+it("result: computation expression return from", function () {
+  const assert__1 = assert;
+  assert__1.deepStrictEqual(function (builder__1) {
+    const r = new Result(0, 42);
+    return builder__1.ReturnFrom(r);
+  }(ResultAutoOpen.result), new Result(0, 42));
+});
 
 class queue {
   constructor(tag, data) {
@@ -654,14 +815,14 @@ class queue {
 
 }
 setType("Fable.EdIlyin.Core.Queue.queue", queue);
-function empty() {
+function empty$1() {
   return new queue(0, [new List$1(), new List$1()]);
 }
 
 function push(_arg1, item) {
   return new queue(0, [_arg1.data[0], new List$1(item, _arg1.data[1])]);
 }
-function ofList(list) {
+function ofList$1(list) {
   return new queue(0, [list, new List$1()]);
 }
 
@@ -672,7 +833,7 @@ function pull(_arg1) {
     } else if (_arg1.data[1].tail == null) {
       return null;
     } else {
-      _arg1 = ofList(reverse(_arg1.data[1]));
+      _arg1 = ofList$1(reverse(_arg1.data[1]));
       continue pull;
     }
   }
@@ -1868,13 +2029,13 @@ const singleton$3 = new AsyncBuilder();
 function op_GreaterGreaterEquals(asyn, func) {
   return singleton$3.Bind(asyn, func);
 }
-function map$3(func, asyn) {
+function map$5(func, asyn) {
   return op_GreaterGreaterEquals(asyn, $var1 => function (arg00) {
     return singleton$3.Return(arg00);
   }(func($var1)));
 }
 function op_BarGreaterGreater(asyn, func) {
-  return map$3(func, asyn);
+  return map$5(func, asyn);
 }
 
 function emptyContinuation(x) {
@@ -1891,7 +2052,7 @@ function fromContinuations(f) {
 }
 
 function parallel(computations) {
-    return awaitPromise(Promise.all(map$2((w) => startAsPromise(w), computations)));
+    return awaitPromise(Promise.all(map$3((w) => startAsPromise(w), computations)));
 }
 function sleep(millisecondsDueTime) {
     return protectedCont((ctx) => {
@@ -2078,7 +2239,7 @@ function execute(func, channel, model) {
 }
 
 function _fetch(model, func, channel) {
-  return map$3(function (model_1) {
+  return map$5(function (model_1) {
     return execute(func, channel, model_1);
   }, (() => {
     const matchValue = length(model.queue) | 0;
@@ -2115,13 +2276,13 @@ function start(quantity, millisecond$$1) {
   return function (arg00) {
     return start$2(arg00);
   }((() => {
-    const model = new Model(quantity, millisecond$$1, empty());
+    const model = new Model(quantity, millisecond$$1, empty$1());
     return function (agent) {
       return body(model, agent);
     };
   })());
 }
-function add(throttler, func) {
+function add$1(throttler, func) {
   return throttler.postAndAsyncReply(function (channel) {
     return new Msg(1, [func, channel]);
   });
@@ -2142,7 +2303,7 @@ it("throttle: simple function", function () {
     return startAsPromise(arg00);
   }(function (builder_) {
     return builder_.Delay(function () {
-      return builder_.Bind(add(throttler, func), function (_arg1) {
+      return builder_.Bind(add$1(throttler, func), function (_arg1) {
         return builder_.Return(equal(42, _arg1));
       });
     });
@@ -2163,7 +2324,7 @@ it("throttle: async function", function () {
     return startAsPromise(arg00_1);
   }(function (builder__2) {
     return builder__2.Delay(function () {
-      return builder__2.Bind(add(throttler_1, func_1), function (_arg1_1) {
+      return builder__2.Bind(add$1(throttler_1, func_1), function (_arg1_1) {
         return builder__2.Bind(_arg1_1, function (_arg2) {
           return builder__2.Return(equal(42, _arg2));
         });
@@ -2179,7 +2340,7 @@ function multipleFunTest(func_2, unitVar1) {
     return builder__3.Delay(function () {
       return builder__3.Bind(parallel(initialize(22, function (_arg1_2) {
         return func_2(function (func_3) {
-          return add(throttler_2, func_3);
+          return add$1(throttler_2, func_3);
         });
       })), function (_arg1_3) {
         const results = map2(function (tupledArg, x) {
@@ -2187,9 +2348,9 @@ function multipleFunTest(func_2, unitVar1) {
         }, (() => {
           const loop = function () {
             return delay(function () {
-              return append$1(singleton$2([0, 0]), delay(function () {
-                return append$1(singleton$2([0, 10]), delay(function () {
-                  return append$1(singleton$2([90, 110]), delay(function () {
+              return append$1(singleton$1([0, 0]), delay(function () {
+                return append$1(singleton$1([0, 10]), delay(function () {
+                  return append$1(singleton$1([90, 110]), delay(function () {
                     return loop();
                   }));
                 }));
@@ -2198,7 +2359,7 @@ function multipleFunTest(func_2, unitVar1) {
           };
 
           return loop();
-        })(), Int32Array.from(map$2(function (tupledArg_1) {
+        })(), Int32Array.from(map$3(function (tupledArg_1) {
           return ~~(tupledArg_1[1] - tupledArg_1[0]);
         }, Array.from(pairwise(_arg1_3)))));
         equal(initialize$1(22 - 1, function (_arg2_1) {
@@ -2243,7 +2404,7 @@ it("throttle: multiple async functions", (() => {
     return multipleFunTest(func_4, null);
   };
 })());
-class Result {
+class DifferentResult {
   constructor(tag, data) {
     this.tag = tag;
     this.data = data;
@@ -2251,7 +2412,7 @@ class Result {
 
   [FSymbol.reflection]() {
     return {
-      type: "ThrottleTests.Result",
+      type: "ThrottleTests.DifferentResult",
       interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
       cases: [["Int", "number"], ["String", "string"]]
     };
@@ -2266,12 +2427,12 @@ class Result {
   }
 
 }
-setType("ThrottleTests.Result", Result);
+setType("ThrottleTests.DifferentResult", DifferentResult);
 it("throttle: couple of different functions", function () {
   const throttler_2 = start(4, 100);
 
   const throttle_2 = function (func_5) {
-    return add(throttler_2, func_5);
+    return add$1(throttler_2, func_5);
   };
 
   const patternInput = [42, "thirty two"];
@@ -2289,12 +2450,12 @@ it("throttle: couple of different functions", function () {
   }(function (builder__5) {
     return builder__5.Delay(function () {
       return builder__5.Bind(throttle_2($var1 => function (arg0) {
-        return new Result(0, arg0);
+        return new DifferentResult(0, arg0);
       }(func1($var1))), function (_arg1_3) {
         return builder__5.Bind(throttle_2($var2 => function (arg0_1) {
-          return new Result(1, arg0_1);
+          return new DifferentResult(1, arg0_1);
         }(func2($var2))), function (_arg2_1) {
-          return builder__5.Return(equal([new Result(0, patternInput[0]), new Result(1, patternInput[1])], [_arg1_3, _arg2_1]));
+          return builder__5.Return(equal([new DifferentResult(0, patternInput[0]), new DifferentResult(1, patternInput[1])], [_arg1_3, _arg2_1]));
         });
       });
     });

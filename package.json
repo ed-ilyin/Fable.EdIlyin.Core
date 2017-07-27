@@ -3,11 +3,13 @@
   "scripts": {
     "rollup": "rollup -c src/Tests/rollup.config.js",
     "pretest": "cd src/Tests; dotnet fable npm-run rollup",
-    "test": "mocha build"
+    "test": "mocha build",
+    "prerelease": "cd src/Fable.EdIlyin.Core; dotnet pack -c Release -o ../../bin",
+    "release": "cd src/Fable.EdIlyin.Core; dotnet pack -c Release -o ../../bin"
   },
   "devDependencies": {
     "babel-core": "^6.25.0",
-    "fable-loader": "1.0.5",
+    "fable-loader": "^1.0.6",
     "mocha": "^3.4.2",
     "rollup": "^0.45.2",
     "rollup-plugin-fable": "^1.0.7"
