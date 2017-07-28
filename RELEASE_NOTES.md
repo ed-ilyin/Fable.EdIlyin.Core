@@ -1,4 +1,13 @@
-### 0.0.10 - 28 July 2017
+### 0.0.13 - 28 July 2017
+* adds AsyncResultLog
+
+#### 0.0.12 - 28 July 2017
+* adds Fetch.text
+
+#### 0.0.11 - 28 July 2017
+* moves fable files back to fable folder root
+
+#### 0.0.10 - 28 July 2017
 * adds Result.Builder.Zero
 
 #### 0.0.4 - 10 July 2017

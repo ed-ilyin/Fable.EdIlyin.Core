@@ -17,7 +17,7 @@ do promisePolyfill ()
 do JsInterop.importSideEffects "isomorphic-fetch"
 
 
-let inline json decoder =
+let json decoder =
     Decode.primitive "an JSON"
         (fun (response: Response) ->
             async {
@@ -30,16 +30,18 @@ let inline json decoder =
 
 
 let fetch url properties decoder =
-    asyncResult {
+    asyncResultLog {
         let! response =
             Fetch.tryFetch url properties
                 |> Async.AwaitPromise
                 |>> Result.mapError string
+                |> AsyncResultLog.fromAsyncResult "try fetch"
 
         let! decodedResponse =
             Decode.decode decoder response
                 |> AsyncResult.fromResultAsync
                 |>> Result.fromResultResult
+                |> AsyncResultLog.fromAsyncResult "decode"
 
         return decodedResponse
     }
@@ -77,3 +79,13 @@ let postJson url headers pojo decoder =
         ]
 
     fetch url properties decoder
+
+let text: Decode.Decoder<Response,Async<Result<string,string>>> =
+    Decode.primitive "a Text"
+        (fun (response: Response) ->
+            async {
+                let! result = response.text () |> Async.AwaitPromise
+                return Ok result
+            }
+                |> Decode.Decoded
+        )

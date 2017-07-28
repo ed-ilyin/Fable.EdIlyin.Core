@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Author>Ed Ilyin</Author>
     <TargetFramework>netstandard1.6</TargetFramework>
-    <Version>0.0.10</Version>
+    <Version>0.0.13</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Basics.fs" />
@@ -15,10 +15,11 @@
     <Compile Include="AsyncResult.fs" />
     <Compile Include="Queue.fs" />
     <Compile Include="Throttle.fs" />
+    <Compile Include="AsyncResultLog.fs" />
     <Compile Include="Http\Fetch.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="*.fsproj; **\*.fs" PackagePath="fable\Fable.EdIlyin.Core" />
+    <Content Include="*.fsproj; **\*.fs" PackagePath="fable\" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

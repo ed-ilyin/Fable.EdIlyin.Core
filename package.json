@@ -1,13 +1,17 @@
 {
   "private": true,
   "scripts": {
+    "update": "mono .paket/paket.exe update",
+    "postupdate": "dotnet restore",
     "pretest": "cd src/Tests; dotnet fable npm-run rollup",
     "rollup": "rollup -c",
     "test": "mocha build"
   },
   "devDependencies": {
     "babel-core": "^6.25.0",
+    "es6-promise": "^4.1.1",
     "fable-loader": "^1.0.6",
+    "isomorphic-fetch": "^2.2.1",
     "mocha": "^3.4.2",
     "rollup": "^0.45.2",
     "rollup-plugin-fable": "^1.0.7"

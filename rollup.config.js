@@ -11,6 +11,6 @@ export default {
     plugins: [
         fable()
     ],
-    external: ['assert'],
+    external: ['assert','es6-promise','isomorphic-fetch'],
     format: 'cjs'
 };

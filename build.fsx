@@ -262,7 +262,7 @@ module Fake =
 let gitOwner = "ed-ilyin"
 let gitHome = "https://github.com/" + gitOwner
 
-let dotnetcliVersion = "2.0.0-preview2-006497"
+let dotnetcliVersion = "1.0.4"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 let dotnetSDKPath = FullName "./dotnetsdk"
 let localDotnetExePath = dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
