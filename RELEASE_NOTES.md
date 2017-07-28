@@ -1,4 +1,7 @@
-### 0.0.13 - 28 July 2017
+### 0.0.14 - 28 July 2017
+* adds AsyncResultLog.print maxChars
+
+#### 0.0.13 - 28 July 2017
 * adds AsyncResultLog
 
 #### 0.0.12 - 28 July 2017

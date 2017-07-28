@@ -1,5 +1,7 @@
 namespace Fable.EdIlyin.Core
 
+open System
+
 
 module AsyncResultLog =
     let log tag result = [ tag, sprintf "%A" result ]
@@ -55,10 +57,22 @@ module AsyncResultLog =
             return response
         }
 
-    let print asyncResultLog =
+    let print maxChars asyncResultLog =
+        let truncate s =
+            if String.length s <= maxChars
+                then s
+                else
+                    Seq.truncate (maxChars - 3) s
+                        |> String.Concat
+                        |> flip (+) "..."
+
         async
             {   let! _, log = asyncResultLog
-                do List.iter (printfn "%s: %s" |> uncurry) log
+                do List.iter
+                    (fun (tag, record) ->
+                        truncate record |> printfn "%s: %s" tag
+                    )
+                    log
             }
 
 

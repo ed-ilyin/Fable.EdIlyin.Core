@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Author>Ed Ilyin</Author>
     <TargetFramework>netstandard1.6</TargetFramework>
-    <Version>0.0.13</Version>
+    <Version>0.0.14</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Basics.fs" />

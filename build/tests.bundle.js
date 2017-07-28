@@ -785,8 +785,26 @@ function skip(n, xs) {
 
 
 
-
-
+function take(n, xs, truncate = false) {
+    return delay(() => {
+        const iter = xs[Symbol.iterator]();
+        return unfold((i) => {
+            if (i < n) {
+                const cur = iter.next();
+                if (!cur.done) {
+                    return [cur.value, i + 1];
+                }
+                if (!truncate) {
+                    throw new Error("Seq has not enough elements");
+                }
+            }
+            return void 0;
+        }, 0);
+    });
+}
+function truncate(n, xs) {
+    return take(n, xs, true);
+}
 
 
 
@@ -2035,7 +2053,20 @@ function fsFormat(str, ...args) {
 
 
 
-
+function join(delimiter, xs) {
+    let xs2 = xs;
+    const len = arguments.length;
+    if (len > 2) {
+        xs2 = Array(len - 1);
+        for (let key = 1; key < len; key++) {
+            xs2[key - 1] = arguments[key];
+        }
+    }
+    else if (!Array.isArray(xs)) {
+        xs2 = Array.from(xs);
+    }
+    return xs2.map((x) => toString(x)).join(delimiter);
+}
 
 function padLeft(str, len, ch, isRight) {
     ch = ch || " ";
@@ -2051,8 +2082,9 @@ function op_EqualsGreater(x, y) {
   return [x, y];
 }
 
-function uncurry(func, x, y) {
-  return func(x, y);
+
+function flip(func, x, y) {
+  return func(y, x);
 }
 
 class DecodeResult {
@@ -2517,18 +2549,28 @@ const AsyncResultLog = function (__exports) {
     }(singleton);
   };
 
-  const print = __exports.print = function (asyncResultLog) {
+  const print = __exports.print = function (maxChars, asyncResultLog) {
+    const truncate$$1 = function (s) {
+      if (s.length <= maxChars) {
+        return s;
+      } else {
+        return flip(function (x, y) {
+          return x + y;
+        }, "...", join("", truncate(maxChars - 3, s)));
+      }
+    };
+
     return function (builder_) {
       return builder_.Delay(function () {
         return builder_.Bind(asyncResultLog, function (_arg1) {
-          iterate($var1 => function (func, tupledArg) {
-            uncurry(func, tupledArg[0], tupledArg[1]);
-          }({
-            formatFn: fsFormat("%s: %s"),
-            input: "%s: %s"
-          }.formatFn(x => {
-            console.log(x);
-          }), $var1), _arg1[1]);
+          iterate(function (tupledArg) {
+            ($var1 => ({
+              formatFn: fsFormat("%s: %s"),
+              input: "%s: %s"
+            }).formatFn(x => {
+              console.log(x);
+            })(tupledArg[0], $var1))(truncate$$1(tupledArg[1]));
+          }, _arg1[1]);
           return builder_.Zero();
         });
       });
