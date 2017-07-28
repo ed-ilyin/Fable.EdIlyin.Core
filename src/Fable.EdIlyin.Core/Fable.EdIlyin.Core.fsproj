@@ -1,7 +1,8 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>0.0.10</Version>
+    <Author>Ed Ilyin</Author>
     <TargetFramework>netstandard1.6</TargetFramework>
+    <Version>0.0.10</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Basics.fs" />
@@ -17,7 +18,7 @@
     <Compile Include="Http\Fetch.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="*.fsproj; **\*.fs" PackagePath="fable\" />
+    <Content Include="*.fsproj; **\*.fs" PackagePath="fable\Fable.EdIlyin.Core" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

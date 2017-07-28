@@ -3,10 +3,7 @@
   "scripts": {
     "pretest": "cd src/Tests; dotnet fable npm-run rollup",
     "rollup": "rollup -c",
-    "test": "mocha build",
-    "prepack": "rm -rf build; find src -iname bin -o -iname obj | xargs rm -rf",
-    "pack": "dotnet pack -c Release -o ../../build",
-    "push": ""
+    "test": "mocha build"
   },
   "devDependencies": {
     "babel-core": "^6.25.0",
