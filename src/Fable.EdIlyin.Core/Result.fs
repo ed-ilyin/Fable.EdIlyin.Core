@@ -45,6 +45,7 @@ module Result =
         member this.Bind (m, f) = Result.bind f m
         member this.Return x = Ok x
         member this.ReturnFrom m = m
+        member this.Zero () = Ok ()
 
 
 [<AutoOpen>]

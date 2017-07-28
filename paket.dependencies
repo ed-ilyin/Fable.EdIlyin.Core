@@ -1,5 +1,6 @@
 source https://nuget.org/api/v2
 
+nuget FAKE
 nuget Fable.PowerPack
 nuget FSharp.Core
 nuget Fable.Core

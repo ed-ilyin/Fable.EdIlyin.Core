@@ -6,8 +6,8 @@ function resolve(filePath) {
 }
 
 export default {
-    entry: resolve('Tests.fsproj'),
-    dest: resolve('../../build/tests.bundle.js'),
+    entry: resolve('src/Tests/Tests.fsproj'),
+    dest: resolve('build/tests.bundle.js'),
     plugins: [
         fable()
     ],

@@ -14,7 +14,7 @@ let inline equal (expected: 'T) (actual: 'T): unit =
 let it (msg: string) (f: unit->unit): unit = jsNative
 
 
-it "result: computation expression return" <| fun () ->
+it "result: computation expression: return" <| fun () ->
     result
         {   let! r = Ok 42
             return r
@@ -22,9 +22,13 @@ it "result: computation expression return" <| fun () ->
         |> equal (Ok 42)
 
 
-it "result: computation expression return from" <| fun () ->
+it "result: computation expression: return from" <| fun () ->
     result
         {   let r = Ok 42
             return! r
         }
         |> equal (Ok 42)
+
+
+it "result: computation expression: zero" <| fun () ->
+    result { do sprintf "%i" 42 |> ignore } |> equal (Ok ())

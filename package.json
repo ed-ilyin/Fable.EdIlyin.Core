@@ -1,11 +1,12 @@
 {
   "private": true,
   "scripts": {
-    "rollup": "rollup -c src/Tests/rollup.config.js",
     "pretest": "cd src/Tests; dotnet fable npm-run rollup",
+    "rollup": "rollup -c",
     "test": "mocha build",
-    "prerelease": "cd src/Fable.EdIlyin.Core; dotnet pack -c Release -o ../../bin",
-    "release": "cd src/Fable.EdIlyin.Core; dotnet pack -c Release -o ../../bin"
+    "prepack": "rm -rf build; find src -iname bin -o -iname obj | xargs rm -rf",
+    "pack": "dotnet pack -c Release -o ../../build",
+    "push": ""
   },
   "devDependencies": {
     "babel-core": "^6.25.0",

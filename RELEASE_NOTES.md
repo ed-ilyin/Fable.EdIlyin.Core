@@ -1,4 +1,7 @@
-### 0.0.4 - 10 July 2017
+### 0.0.10 - 28 July 2017
+* adds Result.Builder.Zero
+
+#### 0.0.4 - 10 July 2017
 * fix in fable src files location
 
 #### 0.0.3 - 10 July 2017

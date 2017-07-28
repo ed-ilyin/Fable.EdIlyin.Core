@@ -1,6 +1,6 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>0.0.9</Version>
+    <Version>0.0.10</Version>
     <TargetFramework>netstandard1.6</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
@@ -8,13 +8,13 @@
     <Compile Include="Debug.fs" />
     <Compile Include="Result.fs" />
     <Compile Include="Decode.fs" />
-    <Compile Include="Json/Decode.fs" />
-    <Compile Include="Json/Encode.fs" />
+    <Compile Include="Json\Decode.fs" />
+    <Compile Include="Json\Encode.fs" />
     <Compile Include="Async.fs" />
     <Compile Include="AsyncResult.fs" />
     <Compile Include="Queue.fs" />
     <Compile Include="Throttle.fs" />
-    <Compile Include="Http/Fetch.fs" />
+    <Compile Include="Http\Fetch.fs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="*.fsproj; **\*.fs" PackagePath="fable\" />

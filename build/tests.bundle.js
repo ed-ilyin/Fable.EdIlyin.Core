@@ -434,6 +434,13 @@ class List$1 {
     }
 }
 
+function map$4(f, source, target) {
+    for (let i = 0; i < source.length; i++) {
+        target[i] = f(source[i]);
+    }
+    return target;
+}
+
 function append$1(xs, ys) {
     return delay(() => {
         let firstDone = false;
@@ -762,6 +769,10 @@ const Result$1 = function (__exports) {
       return m;
     }
 
+    Zero() {
+      return new Result(0, null);
+    }
+
   };
   setType("Fable.EdIlyin.Core.Result.Builder", Builder);
   return __exports;
@@ -770,77 +781,6 @@ const ResultAutoOpen = function (__exports) {
   const result = __exports.result = new Result$1.Builder();
   return __exports;
 }({});
-
-it("result: computation expression return", function () {
-  const assert_ = assert;
-  assert_.deepStrictEqual(function (builder_) {
-    return builder_.Bind(new Result(0, 42), function (_arg1) {
-      return builder_.Return(_arg1);
-    });
-  }(ResultAutoOpen.result), new Result(0, 42));
-});
-it("result: computation expression return from", function () {
-  const assert__1 = assert;
-  assert__1.deepStrictEqual(function (builder__1) {
-    const r = new Result(0, 42);
-    return builder__1.ReturnFrom(r);
-  }(ResultAutoOpen.result), new Result(0, 42));
-});
-
-class queue {
-  constructor(tag, data) {
-    this.tag = tag;
-    this.data = data;
-  }
-
-  [FSymbol.reflection]() {
-    return {
-      type: "Fable.EdIlyin.Core.Queue.queue",
-      interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
-      cases: [["Queue", makeGeneric(List$1, {
-        T: GenericParam("a")
-      }), makeGeneric(List$1, {
-        T: GenericParam("a")
-      })]]
-    };
-  }
-
-  Equals(other) {
-    return this === other || this.tag === other.tag && equals(this.data, other.data);
-  }
-
-  CompareTo(other) {
-    return compareUnions(this, other) | 0;
-  }
-
-}
-setType("Fable.EdIlyin.Core.Queue.queue", queue);
-function empty$1() {
-  return new queue(0, [new List$1(), new List$1()]);
-}
-
-function push(_arg1, item) {
-  return new queue(0, [_arg1.data[0], new List$1(item, _arg1.data[1])]);
-}
-function ofList$1(list) {
-  return new queue(0, [list, new List$1()]);
-}
-
-function pull(_arg1) {
-  pull: while (true) {
-    if (_arg1.data[0].tail != null) {
-      return [_arg1.data[0].head, new queue(0, [_arg1.data[0].tail, _arg1.data[1]])];
-    } else if (_arg1.data[1].tail == null) {
-      return null;
-    } else {
-      _arg1 = ofList$1(reverse(_arg1.data[1]));
-      continue pull;
-    }
-  }
-}
-function length(_arg1) {
-  return _arg1.data[0].length + _arg1.data[1].length | 0;
-}
 
 // TODO verify that this matches the behavior of .NET
 const parseRadix10 = /^ *([\+\-]?[0-9]+) *$/;
@@ -1815,7 +1755,7 @@ const MAX_UNSIGNED_VALUE = fromBits(0xFFFFFFFF | 0, 0xFFFFFFFF | 0, true);
  */
 const MIN_VALUE = fromBits(0, 0x80000000 | 0, false);
 
-function create$1(d = 0, h = 0, m = 0, s = 0, ms = 0) {
+function create$2(d = 0, h = 0, m = 0, s = 0, ms = 0) {
     switch (arguments.length) {
         case 1:
             // ticks
@@ -1835,7 +1775,7 @@ function fromTicks(ticks) {
 }
 
 /* tslint:disable */
-function parse$2(v, kind) {
+function parse$1(v, kind) {
     if (kind == null) {
         kind = typeof v === "string" && v.slice(-1) === "Z" ? 1 /* UTC */ : 2 /* Local */;
     }
@@ -1859,7 +1799,7 @@ function parse$2(v, kind) {
 
 
 function now() {
-    return parse$2();
+    return parse$1();
 }
 
 
@@ -1878,11 +1818,184 @@ function now() {
 
 
 
-function ticks$1(d) {
+function ticks(d) {
     return fromNumber(d.getTime())
         .add(62135596800000) // UnixEpochMilliseconds
         .sub(d.kind === 2 /* Local */ ? d.getTimezoneOffset() * 60 * 1000 : 0)
         .mul(10000);
+}
+
+// From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
+
+const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
+
+
+
+
+function toHex(value) {
+    return value < 0
+        ? "ff" + (16777215 - (Math.abs(value) - 1)).toString(16)
+        : value.toString(16);
+}
+function fsFormat(str, ...args) {
+    function formatOnce(str2, rep) {
+        return str2.replace(fsFormatRegExp, (_, prefix, flags, pad, precision, format) => {
+            switch (format) {
+                case "f":
+                case "F":
+                    rep = rep.toFixed(precision || 6);
+                    break;
+                case "g":
+                case "G":
+                    rep = rep.toPrecision(precision);
+                    break;
+                case "e":
+                case "E":
+                    rep = rep.toExponential(precision);
+                    break;
+                case "O":
+                    rep = toString(rep);
+                    break;
+                case "A":
+                    rep = toString(rep, true);
+                    break;
+                case "x":
+                    rep = toHex(Number(rep));
+                    break;
+                case "X":
+                    rep = toHex(Number(rep)).toUpperCase();
+                    break;
+            }
+            const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep, 10) >= 0;
+            pad = parseInt(pad, 10);
+            if (!isNaN(pad)) {
+                const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
+                rep = padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
+            }
+            const once = prefix + (plusPrefix ? "+" + rep : rep);
+            return once.replace(/%/g, "%%");
+        });
+    }
+    if (args.length === 0) {
+        return (cont) => {
+            if (fsFormatRegExp.test(str)) {
+                return (...args2) => {
+                    let strCopy = str;
+                    for (const arg of args2) {
+                        strCopy = formatOnce(strCopy, arg);
+                    }
+                    return cont(strCopy.replace(/%%/g, "%"));
+                };
+            }
+            else {
+                return cont(str);
+            }
+        };
+    }
+    else {
+        for (const arg of args) {
+            str = formatOnce(str, arg);
+        }
+        return str.replace(/%%/g, "%");
+    }
+}
+
+
+
+
+
+
+
+
+function padLeft(str, len, ch, isRight) {
+    ch = ch || " ";
+    str = String(str);
+    len = len - str.length;
+    for (let i = 0; i < len; i++) {
+        str = isRight ? str + ch : ch + str;
+    }
+    return str;
+}
+
+it("result: computation expression: return", function () {
+  const assert_ = assert;
+  assert_.deepStrictEqual(function (builder_) {
+    return builder_.Bind(new Result(0, 42), function (_arg1) {
+      return builder_.Return(_arg1);
+    });
+  }(ResultAutoOpen.result), new Result(0, 42));
+});
+it("result: computation expression: return from", function () {
+  const assert__1 = assert;
+  assert__1.deepStrictEqual(function (builder__1) {
+    const r = new Result(0, 42);
+    return builder__1.ReturnFrom(r);
+  }(ResultAutoOpen.result), new Result(0, 42));
+});
+it("result: computation expression: zero", function () {
+  const assert__2 = assert;
+  assert__2.deepStrictEqual(function (builder__2) {
+    ({
+      formatFn: fsFormat("%i"),
+      input: "%i"
+    }).formatFn(x => x)(42);
+    return builder__2.Zero();
+  }(ResultAutoOpen.result), new Result(0, null));
+});
+
+class queue {
+  constructor(tag, data) {
+    this.tag = tag;
+    this.data = data;
+  }
+
+  [FSymbol.reflection]() {
+    return {
+      type: "Fable.EdIlyin.Core.Queue.queue",
+      interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
+      cases: [["Queue", makeGeneric(List$1, {
+        T: GenericParam("a")
+      }), makeGeneric(List$1, {
+        T: GenericParam("a")
+      })]]
+    };
+  }
+
+  Equals(other) {
+    return this === other || this.tag === other.tag && equals(this.data, other.data);
+  }
+
+  CompareTo(other) {
+    return compareUnions(this, other) | 0;
+  }
+
+}
+setType("Fable.EdIlyin.Core.Queue.queue", queue);
+function empty$1() {
+  return new queue(0, [new List$1(), new List$1()]);
+}
+
+function push(_arg1, item) {
+  return new queue(0, [_arg1.data[0], new List$1(item, _arg1.data[1])]);
+}
+function ofList$1(list) {
+  return new queue(0, [list, new List$1()]);
+}
+
+function pull(_arg1) {
+  pull: while (true) {
+    if (_arg1.data[0].tail != null) {
+      return [_arg1.data[0].head, new queue(0, [_arg1.data[0].tail, _arg1.data[1]])];
+    } else if (_arg1.data[1].tail == null) {
+      return null;
+    } else {
+      _arg1 = ofList$1(reverse(_arg1.data[1]));
+      continue pull;
+    }
+  }
+}
+function length(_arg1) {
+  return _arg1.data[0].length + _arg1.data[1].length | 0;
 }
 
 class Trampoline {
@@ -2222,9 +2335,9 @@ class Msg {
 }
 setType("Fable.EdIlyin.Core.Throttle.Msg", Msg);
 function nowMilliseconds() {
-  const milliseconds$$1 = create$1((() => {
+  const milliseconds$$1 = create$2((() => {
     let copyOfStruct = now();
-    return ticks$1(copyOfStruct);
+    return ticks(copyOfStruct);
   })());
   return milliseconds$$1;
 }
@@ -2282,7 +2395,7 @@ function start(quantity, millisecond$$1) {
     };
   })());
 }
-function add$1(throttler, func) {
+function add$3(throttler, func) {
   return throttler.postAndAsyncReply(function (channel) {
     return new Msg(1, [func, channel]);
   });
@@ -2303,7 +2416,7 @@ it("throttle: simple function", function () {
     return startAsPromise(arg00);
   }(function (builder_) {
     return builder_.Delay(function () {
-      return builder_.Bind(add$1(throttler, func), function (_arg1) {
+      return builder_.Bind(add$3(throttler, func), function (_arg1) {
         return builder_.Return(equal(42, _arg1));
       });
     });
@@ -2324,7 +2437,7 @@ it("throttle: async function", function () {
     return startAsPromise(arg00_1);
   }(function (builder__2) {
     return builder__2.Delay(function () {
-      return builder__2.Bind(add$1(throttler_1, func_1), function (_arg1_1) {
+      return builder__2.Bind(add$3(throttler_1, func_1), function (_arg1_1) {
         return builder__2.Bind(_arg1_1, function (_arg2) {
           return builder__2.Return(equal(42, _arg2));
         });
@@ -2340,7 +2453,7 @@ function multipleFunTest(func_2, unitVar1) {
     return builder__3.Delay(function () {
       return builder__3.Bind(parallel(initialize(22, function (_arg1_2) {
         return func_2(function (func_3) {
-          return add$1(throttler_2, func_3);
+          return add$3(throttler_2, func_3);
         });
       })), function (_arg1_3) {
         const results = map2(function (tupledArg, x) {
@@ -2359,9 +2472,9 @@ function multipleFunTest(func_2, unitVar1) {
           };
 
           return loop();
-        })(), Int32Array.from(map$3(function (tupledArg_1) {
+        })(), map$4(function (tupledArg_1) {
           return ~~(tupledArg_1[1] - tupledArg_1[0]);
-        }, Array.from(pairwise(_arg1_3)))));
+        }, Array.from(pairwise(_arg1_3)), new Int32Array(Array.from(pairwise(_arg1_3)).length)));
         equal(initialize$1(22 - 1, function (_arg2_1) {
           return true;
         }), results);
@@ -2432,7 +2545,7 @@ it("throttle: couple of different functions", function () {
   const throttler_2 = start(4, 100);
 
   const throttle_2 = function (func_5) {
-    return add$1(throttler_2, func_5);
+    return add$3(throttler_2, func_5);
   };
 
   const patternInput = [42, "thirty two"];
