@@ -20,7 +20,10 @@ do JsInterop.importSideEffects "isomorphic-fetch"
 let fetch url properties decoder =
     asyncResultLog {
         let! response =
-            Fetch.tryFetch url properties
+            // Fetch.fetch url properties
+            GlobalFetch.fetch
+                (RequestInfo.Url url, requestProps properties)
+                |> Promise.result
                 |> AsyncResultLog.fromPromiseResult "try fetch"
                 |> AsyncResultLog.mapError
                     (fun (e: System.Exception) -> e.Message)
@@ -77,9 +80,8 @@ let text: Decode.Decoder<Response,Async<Result<string,string>>> =
                             |> Async.Catch
 
                     let result =
-                        match textChoice with
-                            | Choice1Of2 text -> Ok text
-                            | Choice2Of2 error -> Error error.Message
+                        Result.ofChoice textChoice
+                            |> Result.mapError (fun e -> e.Message)
 
                     return result
                 }
@@ -97,3 +99,8 @@ let json decoder =
                 }
                 |> Decode.Decoded
         )
+
+
+let response: Decode.Decoder<Response,Async<Result<Response,string>>> =
+    Decode.primitive "an HTTP response"
+        (Ok >> async.Return >> Decode.Decoded)

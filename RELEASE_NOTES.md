@@ -1,5 +1,11 @@
+### 0.0.18 - 31 July 2017
+* adds AsyncResultLog.catch
+
+#### 0.0.17 - 31 July 2017
+* do not error on not Ok responses
+
 ### 0.0.16 - 31 July 2017
-* fixes functions signaturesß
+* fixes functions signatures
 
 #### 0.0.15 - 28 July 2017
 * error test

@@ -118,6 +118,25 @@ module AsyncResultLog =
         async { return resultLog tag result }
 
 
+    let catch asyncResultLog =
+        async
+            {   let! choice = asyncResultLog |> Async.Catch
+                let result = Result.ofChoice choice
+
+                let response =
+                    match result with
+                        | Error e ->
+                            Error e.Message |> resultLog "catch"
+
+                        | Ok (Error e, l) ->
+                            Error e, l @ log "catch" (Error e)
+
+                        | Ok (Ok x, l) -> Ok x, l @ log "catch" (Ok x)
+
+                return response
+            }
+
+
 [<AutoOpen>]
 module AsyncResultLogAutoOpen =
     let asyncResultLog = AsyncResultLog.ComputationExpression ()

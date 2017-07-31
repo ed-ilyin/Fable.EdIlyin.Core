@@ -2166,6 +2166,120 @@ function flip(func, x, y) {
   return func(y, x);
 }
 
+const Result$1 = function (__exports) {
+  const map2$$1 = __exports.map2 = function (fn, a, b) {
+    const matchValue = [a, b];
+
+    if (matchValue[0].tag === 1) {
+      return new Result(1, matchValue[0].data);
+    } else if (matchValue[1].tag === 1) {
+      return new Result(1, matchValue[1].data);
+    } else {
+      return new Result(0, fn(matchValue[0].data, matchValue[1].data));
+    }
+  };
+
+  const combineList = __exports.combineList = function (list) {
+    return (() => {
+      let folder;
+
+      const fn = function (e, l) {
+        return new List(e, l);
+      };
+
+      folder = function (a, b) {
+        return map2$$1(fn, a, b);
+      };
+
+      return function (state) {
+        return foldBack(folder, list, state);
+      };
+    })()(new Result(0, new List()));
+  };
+
+  const combineArray = __exports.combineArray = function (array) {
+    return fold((() => {
+      const fn = function (a, e) {
+        return function (array2) {
+          return a.concat(array2);
+        }(Array.from(singleton$1(e)));
+      };
+
+      return function (a_1, b) {
+        return map2$$1(fn, a_1, b);
+      };
+    })(), new Result(0, new Array(0)), array);
+  };
+
+  const ofOption = __exports.ofOption = function (error, option) {
+    if (option != null) {
+      return new Result(0, option);
+    } else {
+      return new Result(1, error);
+    }
+  };
+
+  const ofChoice = __exports.ofChoice = function (choice) {
+    if (choice.tag === 1) {
+      return new Result(1, choice.data);
+    } else {
+      return new Result(0, choice.data);
+    }
+  };
+
+  const fromResultResult = __exports.fromResultResult = function (resultResult) {
+    const $var1 = resultResult.tag === 1 ? [1, resultResult.data] : resultResult.data.tag === 1 ? [1, resultResult.data.data] : [0, resultResult.data.data];
+
+    switch ($var1[0]) {
+      case 0:
+        return new Result(0, $var1[1]);
+
+      case 1:
+        return new Result(1, $var1[1]);
+    }
+  };
+
+  const andThen = __exports.andThen = function () {
+    return function (binder, result) {
+      return bind(binder, result);
+    };
+  };
+
+  const Builder = __exports.Builder = class Builder {
+    [_Symbol.reflection]() {
+      return {
+        type: "Fable.EdIlyin.Core.Result.Builder",
+        properties: {}
+      };
+    }
+
+    constructor() {}
+
+    Bind(m, f) {
+      return bind(f, m);
+    }
+
+    Return(x) {
+      return new Result(0, x);
+    }
+
+    ReturnFrom(m) {
+      return m;
+    }
+
+    Zero() {
+      return new Result(0, null);
+    }
+
+  };
+  setType("Fable.EdIlyin.Core.Result.Builder", Builder);
+  return __exports;
+}({});
+const ResultAutoOpen = function (__exports) {
+  const result = __exports.result = new Result$1.Builder();
+  return __exports;
+}({});
+
 const AsyncResultLog = function (__exports) {
   const log = __exports.log = function (tag, result) {
     return ofArray$1([[tag, {
@@ -2328,6 +2442,31 @@ const AsyncResultLog = function (__exports) {
     }(singleton);
   };
 
+  const _catch = __exports.catch = function (asyncResultLog) {
+    return function (builder_) {
+      return builder_.Delay(function () {
+        return builder_.Bind(catchAsync(asyncResultLog), function (_arg1) {
+          const result = Result$1.ofChoice(_arg1);
+          let response;
+
+          if (result.tag === 0) {
+            const copyOfStruct = result.data[0];
+
+            if (copyOfStruct.tag === 0) {
+              response = [new Result(0, copyOfStruct.data), append$1(result.data[1], log("catch", new Result(0, copyOfStruct.data)))];
+            } else {
+              response = [new Result(1, copyOfStruct.data), append$1(result.data[1], log("catch", new Result(1, copyOfStruct.data)))];
+            }
+          } else {
+            response = resultLog("catch", new Result(1, result.data.message));
+          }
+
+          return builder_.Return(response);
+        });
+      });
+    }(singleton);
+  };
+
   return __exports;
 }({});
 const AsyncResultLogAutoOpen = function (__exports) {
@@ -2436,73 +2575,6 @@ const PromiseImpl = function (__exports) {
   const promise = __exports.promise = new _Promise.PromiseBuilder();
   return __exports;
 }({});
-
-// TODO: This needs improvement, check namespace for non-custom types?
-
-// tslint:disable:max-line-length
-// ----------------------------------------------
-// These functions belong to Seq.ts but are
-// implemented here to prevent cyclic dependencies
-
-// tslint:disable:ban-types
-
-const Fetch_types = function (__exports) {
-  const HttpRequestHeaders = __exports.HttpRequestHeaders = class HttpRequestHeaders {
-    constructor(tag, data) {
-      this.tag = tag;
-      this.data = data;
-    }
-
-    [_Symbol.reflection]() {
-      return {
-        type: "Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders",
-        interfaces: ["FSharpUnion", "System.IEquatable"],
-        cases: [["Accept", "string"], ["Accept-Charset", "string"], ["Accept-Encoding", "string"], ["Accept-Language", "string"], ["Accept-Datetime", "string"], ["Authorization", "string"], ["Cache-Control", "string"], ["Connection", "string"], ["Cookie", "string"], ["Content-Length", "string"], ["Content-MD5", "string"], ["Content-Type", "string"], ["Date", "string"], ["Expect", "string"], ["Forwarded", "string"], ["From", "string"], ["Host", "string"], ["If-Match", "string"], ["If-Modified-Since", "string"], ["If-None-Match", "string"], ["If-Range", "string"], ["If-Unmodified-Since", "string"], ["Max-Forwards", "number"], ["Origin", "string"], ["Pragma", "string"], ["Proxy-Authorization", "string"], ["Range", "string"], ["Referer", "string"], ["SOAPAction", "string"], ["TE", "string"], ["User-Agent", "string"], ["Upgrade", "string"], ["Via", "string"], ["Warning", "string"], ["X-Requested-With", "string"], ["DNT", "string"], ["X-Forwarded-For", "string"], ["X-Forwarded-Host", "string"], ["X-Forwarded-Proto", "string"], ["Front-End-Https", "string"], ["X-Http-Method-Override", "string"], ["X-ATT-DeviceId", "string"], ["X-Wap-Profile", "string"], ["Proxy-Connection", "string"], ["X-UIDH", "string"], ["X-Csrf-Token", "string"], ["Custom", "string", Any]]
-      };
-    }
-
-    Equals(other) {
-      return this === other || this.tag === other.tag && equals(this.data, other.data);
-    }
-
-  };
-  setType("Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders", HttpRequestHeaders);
-  const RequestProperties = __exports.RequestProperties = class RequestProperties {
-    constructor(tag, data) {
-      this.tag = tag;
-      this.data = data;
-    }
-
-    [_Symbol.reflection]() {
-      return {
-        type: "Fable.PowerPack.Fetch.Fetch_types.RequestProperties",
-        interfaces: ["FSharpUnion", "System.IEquatable"],
-        cases: [["Method", "string"], ["Headers", Interface("Fable.PowerPack.Fetch.Fetch_types.IHttpRequestHeaders")], ["Body", Any], ["Mode", "string"], ["Credentials", "string"], ["Cache", "string"]]
-      };
-    }
-
-    Equals(other) {
-      return this === other || this.tag === other.tag && equals(this.data, other.data);
-    }
-
-  };
-  setType("Fable.PowerPack.Fetch.Fetch_types.RequestProperties", RequestProperties);
-  return __exports;
-}({});
-
-function _fetch$1(url, init) {
-  return fetch(url, createObj(init, 1)).then(function (response) {
-    if (response.ok) {
-      return response;
-    } else {
-      throw new Error(response.status.toString() + " " + response.statusText + " for URL " + response.url);
-    }
-  });
-}
-
-function tryFetch(url, init) {
-  return _Promise.result(_fetch$1(url, init));
-}
 
 class DecodeResult {
   constructor(tag, data) {
@@ -2613,12 +2685,65 @@ function andMap(decoder, functionDecoder) {
 function op_LessMultiplyGreater(fnDecoder, decoder) {
   return andMap(decoder, fnDecoder);
 }
-function map$6(func, decoder) {
+function map$5(func, decoder) {
   return op_LessQmarkGreater(op_LessMultiplyGreater(succeed(func), decoder), {
     formatFn: fsFormat("{ %s }"),
     input: "{ %s }"
   }.formatFn(x => x)(getLabel(decoder)));
 }
+
+// TODO: This needs improvement, check namespace for non-custom types?
+
+// tslint:disable:max-line-length
+// ----------------------------------------------
+// These functions belong to Seq.ts but are
+// implemented here to prevent cyclic dependencies
+
+// tslint:disable:ban-types
+
+const Fetch_types = function (__exports) {
+  const HttpRequestHeaders = __exports.HttpRequestHeaders = class HttpRequestHeaders {
+    constructor(tag, data) {
+      this.tag = tag;
+      this.data = data;
+    }
+
+    [_Symbol.reflection]() {
+      return {
+        type: "Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders",
+        interfaces: ["FSharpUnion", "System.IEquatable"],
+        cases: [["Accept", "string"], ["Accept-Charset", "string"], ["Accept-Encoding", "string"], ["Accept-Language", "string"], ["Accept-Datetime", "string"], ["Authorization", "string"], ["Cache-Control", "string"], ["Connection", "string"], ["Cookie", "string"], ["Content-Length", "string"], ["Content-MD5", "string"], ["Content-Type", "string"], ["Date", "string"], ["Expect", "string"], ["Forwarded", "string"], ["From", "string"], ["Host", "string"], ["If-Match", "string"], ["If-Modified-Since", "string"], ["If-None-Match", "string"], ["If-Range", "string"], ["If-Unmodified-Since", "string"], ["Max-Forwards", "number"], ["Origin", "string"], ["Pragma", "string"], ["Proxy-Authorization", "string"], ["Range", "string"], ["Referer", "string"], ["SOAPAction", "string"], ["TE", "string"], ["User-Agent", "string"], ["Upgrade", "string"], ["Via", "string"], ["Warning", "string"], ["X-Requested-With", "string"], ["DNT", "string"], ["X-Forwarded-For", "string"], ["X-Forwarded-Host", "string"], ["X-Forwarded-Proto", "string"], ["Front-End-Https", "string"], ["X-Http-Method-Override", "string"], ["X-ATT-DeviceId", "string"], ["X-Wap-Profile", "string"], ["Proxy-Connection", "string"], ["X-UIDH", "string"], ["X-Csrf-Token", "string"], ["Custom", "string", Any]]
+      };
+    }
+
+    Equals(other) {
+      return this === other || this.tag === other.tag && equals(this.data, other.data);
+    }
+
+  };
+  setType("Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders", HttpRequestHeaders);
+  const RequestProperties = __exports.RequestProperties = class RequestProperties {
+    constructor(tag, data) {
+      this.tag = tag;
+      this.data = data;
+    }
+
+    [_Symbol.reflection]() {
+      return {
+        type: "Fable.PowerPack.Fetch.Fetch_types.RequestProperties",
+        interfaces: ["FSharpUnion", "System.IEquatable"],
+        cases: [["Method", "string"], ["Headers", Interface("Fable.PowerPack.Fetch.Fetch_types.IHttpRequestHeaders")], ["Body", Any], ["Mode", "string"], ["Credentials", "string"], ["Cache", "string"]]
+      };
+    }
+
+    Equals(other) {
+      return this === other || this.tag === other.tag && equals(this.data, other.data);
+    }
+
+  };
+  setType("Fable.PowerPack.Fetch.Fetch_types.RequestProperties", RequestProperties);
+  return __exports;
+}({});
 
 function object(fields) {
   return createObj(fields, 0);
@@ -2626,120 +2751,6 @@ function object(fields) {
 function string(x) {
   return x;
 }
-
-const Result$1 = function (__exports) {
-  const map2$$1 = __exports.map2 = function (fn, a, b) {
-    const matchValue = [a, b];
-
-    if (matchValue[0].tag === 1) {
-      return new Result(1, matchValue[0].data);
-    } else if (matchValue[1].tag === 1) {
-      return new Result(1, matchValue[1].data);
-    } else {
-      return new Result(0, fn(matchValue[0].data, matchValue[1].data));
-    }
-  };
-
-  const combineList = __exports.combineList = function (list) {
-    return (() => {
-      let folder;
-
-      const fn = function (e, l) {
-        return new List(e, l);
-      };
-
-      folder = function (a, b) {
-        return map2$$1(fn, a, b);
-      };
-
-      return function (state) {
-        return foldBack(folder, list, state);
-      };
-    })()(new Result(0, new List()));
-  };
-
-  const combineArray = __exports.combineArray = function (array) {
-    return fold((() => {
-      const fn = function (a, e) {
-        return function (array2) {
-          return a.concat(array2);
-        }(Array.from(singleton$1(e)));
-      };
-
-      return function (a_1, b) {
-        return map2$$1(fn, a_1, b);
-      };
-    })(), new Result(0, new Array(0)), array);
-  };
-
-  const ofOption = __exports.ofOption = function (error, option) {
-    if (option != null) {
-      return new Result(0, option);
-    } else {
-      return new Result(1, error);
-    }
-  };
-
-  const ofChoice = __exports.ofChoice = function (choice) {
-    if (choice.tag === 1) {
-      return new Result(1, choice.data);
-    } else {
-      return new Result(0, choice.data);
-    }
-  };
-
-  const fromResultResult = __exports.fromResultResult = function (resultResult) {
-    const $var1 = resultResult.tag === 1 ? [1, resultResult.data] : resultResult.data.tag === 1 ? [1, resultResult.data.data] : [0, resultResult.data.data];
-
-    switch ($var1[0]) {
-      case 0:
-        return new Result(0, $var1[1]);
-
-      case 1:
-        return new Result(1, $var1[1]);
-    }
-  };
-
-  const andThen = __exports.andThen = function () {
-    return function (binder, result) {
-      return bind(binder, result);
-    };
-  };
-
-  const Builder = __exports.Builder = class Builder {
-    [_Symbol.reflection]() {
-      return {
-        type: "Fable.EdIlyin.Core.Result.Builder",
-        properties: {}
-      };
-    }
-
-    constructor() {}
-
-    Bind(m, f) {
-      return bind(f, m);
-    }
-
-    Return(x) {
-      return new Result(0, x);
-    }
-
-    ReturnFrom(m) {
-      return m;
-    }
-
-    Zero() {
-      return new Result(0, null);
-    }
-
-  };
-  setType("Fable.EdIlyin.Core.Result.Builder", Builder);
-  return __exports;
-}({});
-const ResultAutoOpen = function (__exports) {
-  const result = __exports.result = new Result$1.Builder();
-  return __exports;
-}({});
 
 function decodeValue(decoder, jsonValue) {
   return decode(decoder, jsonValue);
@@ -2840,7 +2851,7 @@ const _float$1 = primitive("a Float", function (o) {
 });
 
 
-const dateTime = map$6(function (i) {
+const dateTime = map$5(function (i) {
   const start = create$1(1970, 1, 1, 0, 0, 0, 0, 1);
   return addSeconds(start, i);
 }, _float$1);
@@ -2859,7 +2870,7 @@ function _fetch(url, properties, decoder) {
   return function (builder_) {
     return builder_.Bind(AsyncResultLog.mapError(function (e) {
       return e.message;
-    }, AsyncResultLog.fromPromiseResult("try fetch", tryFetch(url, properties))), function (_arg1) {
+    }, AsyncResultLog.fromPromiseResult("try fetch", _Promise.result(fetch(url, createObj(properties, 1))))), function (_arg1) {
       return builder_.Bind(AsyncResultLog.fromResultAsyncResult("decode", decode(decoder, _arg1)), function (_arg2) {
         return builder_.Return(_arg2);
       });
@@ -2877,7 +2888,9 @@ const text = primitive("a Text", function (response) {
   return new DecodeResult(0, function (builder_) {
     return builder_.Delay(function () {
       return builder_.Bind(catchAsync(awaitPromise(response.text())), function (_arg1) {
-        const result = _arg1.tag === 1 ? new Result(1, _arg1.data.message) : new Result(0, _arg1.data);
+        const result = mapError(function (e) {
+          return e.message;
+        }, Result$1.ofChoice(_arg1));
         return builder_.Return(result);
       });
     });
@@ -2895,6 +2908,13 @@ function json(decoder) {
     }(singleton));
   });
 }
+const response = primitive("an HTTP response", $var2 => function (arg0_1) {
+  return new DecodeResult(0, arg0_1);
+}(($var1 => function (arg00) {
+  return singleton.Return(arg00);
+}(function (arg0) {
+  return new Result(0, arg0);
+}($var1)))($var2)));
 
 function equal(expected, actual) {
   const assert_ = assert;

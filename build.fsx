@@ -365,8 +365,6 @@ let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
     |> Seq.iter (fun projFile ->
         let projDir = Path.GetDirectoryName(projFile)
 
-        // Restore dependencies here so they're updated to latest project versions
-        Util.run projDir dotnetExePath "restore"
         Util.run projDir dotnetExePath (sprintf "pack -c Release /p:Version=%s" releaseNotes.NugetVersion)
 
         Paket.Push (fun p ->
@@ -383,6 +381,7 @@ Target "Clean" clean
 Target "Build" (fun () ->
     installDotnetSdk ()
     clean ()
+
     for pkg in packages do
         let projFile = __SOURCE_DIRECTORY__ </> (pkg + ".fsproj")
         let projDir = Path.GetDirectoryName(projFile)
@@ -393,6 +392,9 @@ Target "Build" (fun () ->
 let publishPackages () =
     installDotnetSdk ()
     clean ()
+
+    // Restore dependencies here so they're updated to latest project versions
+    Util.run null dotnetExePath "restore"
     for pkg in packages do
         let projFile = __SOURCE_DIRECTORY__ </> (pkg + ".fsproj")
         let projDir = Path.GetDirectoryName(projFile)
