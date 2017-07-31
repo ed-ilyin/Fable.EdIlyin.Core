@@ -1,6 +1,7 @@
 namespace Fable.EdIlyin.Core
 
 open System
+open Fable.Core
 
 
 module AsyncResultLog =
@@ -36,14 +37,14 @@ module AsyncResultLog =
     let resultLog tag result = result, log tag result
 
 
-    let singleton x =
+    let singleton tag x =
         let result = Ok x
-        resultLog "singleton" result |> async.Return
+        resultLog tag result |> async.Return
 
 
     type ComputationExpression () =
         member this.Bind (m, f) = andThen f m
-        member this.Return x = singleton x
+        member this.Return x = singleton "return" x
         member this.ReturnFrom m = m
 
         member this.Zero () =
@@ -56,6 +57,7 @@ module AsyncResultLog =
             let! response = resultLog tag result |> async.Return
             return response
         }
+
 
     let print maxChars asyncResultLog =
         let truncate s =
@@ -74,6 +76,46 @@ module AsyncResultLog =
                     )
                     log
             }
+
+
+    let fromPromise tag promise =
+        async
+            {   let! x = Async.AwaitPromise promise
+                return! singleton tag x
+            }
+
+
+    let fromResultAsyncResult tag resultAsyncResult =
+        async
+            {   let! result =
+                    match resultAsyncResult with
+                        | Error message ->
+                            Error message |> async.Return
+
+                        | Ok asyncResult -> asyncResult
+
+                return resultLog tag result
+            }
+
+
+    let fromPromiseResult tag promiseResult =
+        async
+            {   let! x = Async.AwaitPromise promiseResult
+                return resultLog tag x
+            }
+
+
+    let mapError func asyncResultLog =
+        async
+            {
+                let! result, log = asyncResultLog
+                let response = Result.mapError func result, log
+                return response
+            }
+
+
+    let fromResult tag result =
+        async { return resultLog tag result }
 
 
 [<AutoOpen>]

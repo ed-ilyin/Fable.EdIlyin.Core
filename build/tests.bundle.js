@@ -488,6 +488,38 @@ function createObj(fields, caseRule = CaseRules.None, casesCache) {
     return o;
 }
 
+function choice1Of2(v) {
+    return new Choice(0, v);
+}
+function choice2Of2(v) {
+    return new Choice(1, v);
+}
+class Choice {
+    constructor(tag, data) {
+        this.tag = tag | 0;
+        this.data = data;
+    }
+    get valueIfChoice1() {
+        return this.tag === 0 ? this.data : null;
+    }
+    get valueIfChoice2() {
+        return this.tag === 1 ? this.data : null;
+    }
+    Equals(other) {
+        return equalsUnions(this, other);
+    }
+    CompareTo(other) {
+        return compareUnions(this, other);
+    }
+    [_Symbol.reflection]() {
+        return {
+            type: "Microsoft.FSharp.Core.FSharpChoice",
+            interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
+            cases: [["Choice1Of2", Any], ["Choice2Of2", Any]],
+        };
+    }
+}
+
 function map$1(f, source, target) {
     for (let i = 0; i < source.length; i++) {
         target[i] = f(source[i]);
@@ -841,7 +873,17 @@ function awaitPromise(p) {
 }
 
 const defaultCancellationToken = { isCancelled: false };
-
+function catchAsync(work) {
+    return protectedCont((ctx) => {
+        work({
+            onSuccess: (x) => ctx.onSuccess(choice1Of2(x)),
+            onError: (ex) => ctx.onSuccess(choice2Of2(ex)),
+            onCancel: ctx.onCancel,
+            cancelToken: ctx.cancelToken,
+            trampoline: ctx.trampoline,
+        });
+    });
+}
 function fromContinuations(f) {
     return protectedCont((ctx) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
 }
@@ -879,34 +921,42 @@ function startAsPromise(computation, cancellationToken) {
     return new Promise((resolve, reject) => startWithContinuations(computation, resolve, reject, reject, cancellationToken ? cancellationToken : defaultCancellationToken));
 }
 
-class Result {
-    constructor(tag, data) {
-        this.tag = tag | 0;
-        this.data = data;
-    }
-    Equals(other) {
-        return equalsUnions(this, other);
-    }
-    CompareTo(other) {
-        return compareUnions(this, other);
-    }
-    [_Symbol.reflection]() {
-        return {
-            type: "Microsoft.FSharp.Core.FSharpResult",
-            interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
-            cases: [["Ok", Any], ["Error", Any]],
-        };
-    }
+// ----------------------------------------------
+// These functions belong to Seq.ts but are
+// implemented here to prevent cyclic dependencies
+
+function append$1(xs, ys) {
+    return fold((acc, x) => new List(x, acc), ys, reverse$1(xs));
 }
-function map$3(f, result) {
-    return result.tag === 0 ? new Result(0, f(result.data)) : result;
+
+
+// TODO: should be xs: Iterable<List<T>>
+
+
+
+function initialize$1(n, f) {
+    if (n < 0) {
+        throw new Error("List length must be non-negative");
+    }
+    let xs = new List();
+    for (let i = 1; i <= n; i++) {
+        xs = new List(f(n - i), xs);
+    }
+    return xs;
 }
-function mapError(f, result) {
-    return result.tag === 1 ? new Result(1, f(result.data)) : result;
+
+
+
+
+
+function reverse$1(xs) {
+    return fold((acc, x) => new List(x, acc), new List(), xs);
 }
-function bind(f, result) {
-    return result.tag === 0 ? f(result.data) : result;
-}
+
+
+/* ToDo: instance unzip() */
+
+/* ToDo: instance unzip3() */
 
 // TODO verify that this matches the behavior of .NET
 const parseRadix10 = /^ *([\+\-]?[0-9]+) *$/;
@@ -1881,7 +1931,7 @@ const MAX_UNSIGNED_VALUE = fromBits(0xFFFFFFFF | 0, 0xFFFFFFFF | 0, true);
  */
 const MIN_VALUE = fromBits(0, 0x80000000 | 0, false);
 
-function create$1(d = 0, h = 0, m = 0, s = 0, ms = 0) {
+function create$2(d = 0, h = 0, m = 0, s = 0, ms = 0) {
     switch (arguments.length) {
         case 1:
             // ticks
@@ -1923,7 +1973,7 @@ function parse$1(v, kind) {
 }
 /* tslint:enable */
 
-function create(year, month, day, h = 0, m = 0, s = 0, ms = 0, kind = 2 /* Local */) {
+function create$1(year, month, day, h = 0, m = 0, s = 0, ms = 0, kind = 2 /* Local */) {
     let date;
     if (kind === 2 /* Local */) {
         date = new Date(year, month - 1, day, h, m, s, ms);
@@ -2078,6 +2128,35 @@ function padLeft(str, len, ch, isRight) {
     return str;
 }
 
+class Result {
+    constructor(tag, data) {
+        this.tag = tag | 0;
+        this.data = data;
+    }
+    Equals(other) {
+        return equalsUnions(this, other);
+    }
+    CompareTo(other) {
+        return compareUnions(this, other);
+    }
+    [_Symbol.reflection]() {
+        return {
+            type: "Microsoft.FSharp.Core.FSharpResult",
+            interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
+            cases: [["Ok", Any], ["Error", Any]],
+        };
+    }
+}
+function map$4(f, result) {
+    return result.tag === 0 ? new Result(0, f(result.data)) : result;
+}
+function mapError(f, result) {
+    return result.tag === 1 ? new Result(1, f(result.data)) : result;
+}
+function bind(f, result) {
+    return result.tag === 0 ? f(result.data) : result;
+}
+
 function op_EqualsGreater(x, y) {
   return [x, y];
 }
@@ -2086,385 +2165,6 @@ function op_EqualsGreater(x, y) {
 function flip(func, x, y) {
   return func(y, x);
 }
-
-class DecodeResult {
-  constructor(tag, data) {
-    this.tag = tag;
-    this.data = data;
-  }
-
-  [_Symbol.reflection]() {
-    return {
-      type: "Fable.EdIlyin.Core.Decode.DecodeResult",
-      interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
-      cases: [["Decoded", GenericParam("T")], ["ExpectingButGot", "string", "string"], ["ErrorMessage", "string"]]
-    };
-  }
-
-  Equals(other) {
-    return this === other || this.tag === other.tag && equals(this.data, other.data);
-  }
-
-  CompareTo(other) {
-    return compareUnions(this, other) | 0;
-  }
-
-}
-setType("Fable.EdIlyin.Core.Decode.DecodeResult", DecodeResult);
-class Decoder {
-  constructor(decoder, label) {
-    this.decoder = decoder;
-    this.label = label;
-  }
-
-  [_Symbol.reflection]() {
-    return {
-      type: "Fable.EdIlyin.Core.Decode.Decoder",
-      interfaces: ["FSharpRecord"],
-      properties: {
-        decoder: FableFunction([GenericParam("From"), makeGeneric(DecodeResult, {
-          T: GenericParam("To")
-        })]),
-        label: "string"
-      }
-    };
-  }
-
-}
-setType("Fable.EdIlyin.Core.Decode.Decoder", Decoder);
-function run(decoder, jsonValue) {
-  return decoder.decoder(jsonValue);
-}
-function decode(decoder, source) {
-  return function (_arg1) {
-    return _arg1.tag === 1 ? new Result(1, {
-      formatFn: fsFormat("Expecting %s, but instead got: %A"),
-      input: "Expecting %s, but instead got: %A"
-    }.formatFn(x => x)(_arg1.data[0], _arg1.data[1])) : _arg1.tag === 2 ? new Result(1, _arg1.data) : new Result(0, _arg1.data);
-  }(run(decoder, source));
-}
-function primitive(label, func) {
-  return new Decoder(func, label);
-}
-
-function succeed(value) {
-  return ($var1 => function (label, func) {
-    return primitive(label, func);
-  }({
-    formatFn: fsFormat("%A"),
-    input: "%A"
-  }.formatFn(x => x)(value), $var1))(function (_arg1) {
-    return new DecodeResult(0, value);
-  });
-}
-
-function getLabel(decoder) {
-  return decoder.label;
-}
-function setLabel(label, decoder) {
-  return new Decoder(decoder.decoder, label);
-}
-function op_LessQmarkGreater(decoder, label) {
-  return setLabel(label, decoder);
-}
-function andThen(func, decoder) {
-  const label = getLabel(decoder);
-  return primitive(label, function (input) {
-    const matchValue = run(decoder, input);
-
-    if (matchValue.tag === 1) {
-      return function (tupledArg) {
-        return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
-      }(op_EqualsGreater(matchValue.data[0], matchValue.data[1]));
-    } else if (matchValue.tag === 2) {
-      return new DecodeResult(2, matchValue.data);
-    } else {
-      return run(func(matchValue.data), input);
-    }
-  });
-}
-function op_GreaterGreaterEquals(decoder, func) {
-  return andThen(func, decoder);
-}
-function andMap(decoder, functionDecoder) {
-  return op_GreaterGreaterEquals(functionDecoder, function (func) {
-    return op_GreaterGreaterEquals(decoder, $var2 => function (value) {
-      return succeed(value);
-    }(func($var2)));
-  });
-}
-function op_LessMultiplyGreater(fnDecoder, decoder) {
-  return andMap(decoder, fnDecoder);
-}
-function map$2(func, decoder) {
-  return op_LessQmarkGreater(op_LessMultiplyGreater(succeed(func), decoder), {
-    formatFn: fsFormat("{ %s }"),
-    input: "{ %s }"
-  }.formatFn(x => x)(getLabel(decoder)));
-}
-
-// ----------------------------------------------
-// These functions belong to Seq.ts but are
-// implemented here to prevent cyclic dependencies
-
-function append$1(xs, ys) {
-    return fold((acc, x) => new List(x, acc), ys, reverse$1(xs));
-}
-
-
-// TODO: should be xs: Iterable<List<T>>
-
-
-
-function initialize$2(n, f) {
-    if (n < 0) {
-        throw new Error("List length must be non-negative");
-    }
-    let xs = new List();
-    for (let i = 1; i <= n; i++) {
-        xs = new List(f(n - i), xs);
-    }
-    return xs;
-}
-
-
-
-
-
-function reverse$1(xs) {
-    return fold((acc, x) => new List(x, acc), new List(), xs);
-}
-
-
-/* ToDo: instance unzip() */
-
-/* ToDo: instance unzip3() */
-
-const Result$1 = function (__exports) {
-  const map2$$1 = __exports.map2 = function (fn, a, b) {
-    const matchValue = [a, b];
-
-    if (matchValue[0].tag === 1) {
-      return new Result(1, matchValue[0].data);
-    } else if (matchValue[1].tag === 1) {
-      return new Result(1, matchValue[1].data);
-    } else {
-      return new Result(0, fn(matchValue[0].data, matchValue[1].data));
-    }
-  };
-
-  const combineList = __exports.combineList = function (list) {
-    return (() => {
-      let folder;
-
-      const fn = function (e, l) {
-        return new List(e, l);
-      };
-
-      folder = function (a, b) {
-        return map2$$1(fn, a, b);
-      };
-
-      return function (state) {
-        return foldBack(folder, list, state);
-      };
-    })()(new Result(0, new List()));
-  };
-
-  const combineArray = __exports.combineArray = function (array) {
-    return fold((() => {
-      const fn = function (a, e) {
-        return function (array2) {
-          return a.concat(array2);
-        }(Array.from(singleton$1(e)));
-      };
-
-      return function (a_1, b) {
-        return map2$$1(fn, a_1, b);
-      };
-    })(), new Result(0, new Array(0)), array);
-  };
-
-  const ofOption = __exports.ofOption = function (error, option) {
-    if (option != null) {
-      return new Result(0, option);
-    } else {
-      return new Result(1, error);
-    }
-  };
-
-  const ofChoice = __exports.ofChoice = function (choice) {
-    if (choice.tag === 1) {
-      return new Result(1, choice.data);
-    } else {
-      return new Result(0, choice.data);
-    }
-  };
-
-  const fromResultResult = __exports.fromResultResult = function (resultResult) {
-    const $var1 = resultResult.tag === 1 ? [1, resultResult.data] : resultResult.data.tag === 1 ? [1, resultResult.data.data] : [0, resultResult.data.data];
-
-    switch ($var1[0]) {
-      case 0:
-        return new Result(0, $var1[1]);
-
-      case 1:
-        return new Result(1, $var1[1]);
-    }
-  };
-
-  const andThen = __exports.andThen = function () {
-    return function (binder, result) {
-      return bind(binder, result);
-    };
-  };
-
-  const Builder = __exports.Builder = class Builder {
-    [_Symbol.reflection]() {
-      return {
-        type: "Fable.EdIlyin.Core.Result.Builder",
-        properties: {}
-      };
-    }
-
-    constructor() {}
-
-    Bind(m, f) {
-      return bind(f, m);
-    }
-
-    Return(x) {
-      return new Result(0, x);
-    }
-
-    ReturnFrom(m) {
-      return m;
-    }
-
-    Zero() {
-      return new Result(0, null);
-    }
-
-  };
-  setType("Fable.EdIlyin.Core.Result.Builder", Builder);
-  return __exports;
-}({});
-const ResultAutoOpen = function (__exports) {
-  const result = __exports.result = new Result$1.Builder();
-  return __exports;
-}({});
-
-function decodeValue(decoder, jsonValue) {
-  return decode(decoder, jsonValue);
-}
-
-const value = primitive("a POJO", function (arg0) {
-  return new DecodeResult(0, arg0);
-});
-function field(name, decoder) {
-  const label = {
-    formatFn: fsFormat("%s field '%s'"),
-    input: "%s field '%s'"
-  }.formatFn(x => x)(getLabel(decoder), name);
-  return primitive(label, function (o) {
-    const matchValue = Object.prototype.hasOwnProperty.call(o, name);
-
-    if (matchValue) {
-      return function (jsonValue) {
-        return run(decoder, jsonValue);
-      }(o[name]);
-    } else {
-      return new DecodeResult(1, [label, {
-        formatFn: fsFormat("%A"),
-        input: "%A"
-      }.formatFn(x => x)(o)]);
-    }
-  });
-}
-
-const bool = primitive("a Bool", function (o) {
-  return typeof o === "boolean" ? new DecodeResult(0, o) : function (tupledArg) {
-    return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
-  }(op_EqualsGreater("a Bool", {
-    formatFn: fsFormat("%A"),
-    input: "%A"
-  }.formatFn(x => x)(o)));
-});
-
-const _int = primitive("an Int", function (o) {
-  return (value => {
-    if (typeof value !== "number") {
-      return false;
-    }
-
-    
-
-    if (-2147483648 <= value && value <= 2147483647 && (value | 0) === value) {
-      return true;
-    }
-
-    if (isFinite(value) && !(value % 1)) {
-      return true;
-    }
-
-    
-    return false;
-  })(o) ? new DecodeResult(0, o) : function (tupledArg) {
-    return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
-  }(op_EqualsGreater("an Int", {
-    formatFn: fsFormat("%A"),
-    input: "%A"
-  }.formatFn(x => x)(o)));
-});
-
-const int64 = primitive("an Int64", function (o) {
-  return (value => {
-    if (typeof value !== "number") {
-      return false;
-    }
-
-    
-
-    if (-9223372036854775808 <= value && value <= 9223372032559808512 && (value | 0) === value) {
-      return true;
-    }
-
-    if (isFinite(value) && !(value % 1)) {
-      return true;
-    }
-
-    
-    return false;
-  })(o) ? new DecodeResult(0, o) : function (tupledArg) {
-    return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
-  }(op_EqualsGreater("an Int64", {
-    formatFn: fsFormat("%A"),
-    input: "%A"
-  }.formatFn(x => x)(o)));
-});
-
-const _float = primitive("a Float", function (o) {
-  return typeof o === "number" ? new DecodeResult(0, o) : function (tupledArg) {
-    return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
-  }(op_EqualsGreater("a Float", {
-    formatFn: fsFormat("%A"),
-    input: "%A"
-  }.formatFn(x => x)(o)));
-});
-
-
-const dateTime = map$2(function (i) {
-  const start = create(1970, 1, 1, 0, 0, 0, 0, 1);
-  return addSeconds(start, i);
-}, _float);
-const string = primitive("a String", function (o) {
-  return typeof o === "string" ? new DecodeResult(0, o) : function (tupledArg) {
-    return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
-  }(op_EqualsGreater("a String", {
-    formatFn: fsFormat("%A"),
-    input: "%A"
-  }.formatFn(x => x)(o)));
-});
 
 const AsyncResultLog = function (__exports) {
   const log = __exports.log = function (tag, result) {
@@ -2499,11 +2199,11 @@ const AsyncResultLog = function (__exports) {
     return [result, log(tag, result)];
   };
 
-  const singleton$$1 = __exports.singleton = function (x) {
+  const singleton$$1 = __exports.singleton = function (tag, x) {
     const result = new Result(0, x);
     return function (arg00) {
       return singleton.Return(arg00);
-    }(resultLog("singleton", result));
+    }(resultLog(tag, result));
   };
 
   const ComputationExpression = __exports.ComputationExpression = class ComputationExpression {
@@ -2521,7 +2221,7 @@ const AsyncResultLog = function (__exports) {
     }
 
     Return(x) {
-      return singleton$$1(x);
+      return singleton$$1("return", x);
     }
 
     ReturnFrom(m) {
@@ -2577,24 +2277,63 @@ const AsyncResultLog = function (__exports) {
     }(singleton);
   };
 
+  const fromPromise = __exports.fromPromise = function (tag, promise) {
+    return function (builder_) {
+      return builder_.Delay(function () {
+        return builder_.Bind(awaitPromise(promise), function (_arg1) {
+          return builder_.ReturnFrom(singleton$$1(tag, _arg1));
+        });
+      });
+    }(singleton);
+  };
+
+  const fromResultAsyncResult = __exports.fromResultAsyncResult = function (tag, resultAsyncResult) {
+    return function (builder_) {
+      return builder_.Delay(function () {
+        return builder_.Bind(resultAsyncResult.tag === 0 ? resultAsyncResult.data : function (arg00) {
+          return singleton.Return(arg00);
+        }(new Result(1, resultAsyncResult.data)), function (_arg1) {
+          return builder_.Return(resultLog(tag, _arg1));
+        });
+      });
+    }(singleton);
+  };
+
+  const fromPromiseResult = __exports.fromPromiseResult = function (tag, promiseResult) {
+    return function (builder_) {
+      return builder_.Delay(function () {
+        return builder_.Bind(awaitPromise(promiseResult), function (_arg1) {
+          return builder_.Return(resultLog(tag, _arg1));
+        });
+      });
+    }(singleton);
+  };
+
+  const mapError$$1 = __exports.mapError = function (func, asyncResultLog) {
+    return function (builder_) {
+      return builder_.Delay(function () {
+        return builder_.Bind(asyncResultLog, function (_arg1) {
+          const response = [mapError(func, _arg1[0]), _arg1[1]];
+          return builder_.Return(response);
+        });
+      });
+    }(singleton);
+  };
+
+  const fromResult = __exports.fromResult = function (tag, result) {
+    return function (builder_) {
+      return builder_.Delay(function () {
+        return builder_.Return(resultLog(tag, result));
+      });
+    }(singleton);
+  };
+
   return __exports;
 }({});
 const AsyncResultLogAutoOpen = function (__exports) {
   const asyncResultLog = __exports.asyncResultLog = new AsyncResultLog.ComputationExpression();
   return __exports;
 }({});
-
-function op_GreaterGreaterEquals$1(asyn, func) {
-  return singleton.Bind(asyn, func);
-}
-function map$6(func, asyn) {
-  return op_GreaterGreaterEquals$1(asyn, $var1 => function (arg00) {
-    return singleton.Return(arg00);
-  }(func($var1)));
-}
-function op_BarGreaterGreater(asyn, func) {
-  return map$6(func, asyn);
-}
 
 const _Promise = function (__exports) {
   const result = __exports.result = function (a) {
@@ -2603,7 +2342,7 @@ const _Promise = function (__exports) {
 
   const mapResult = __exports.mapResult = function (fn, a) {
     return a.then(function (result_1) {
-      return map$3(fn, result_1);
+      return map$4(fn, result_1);
     });
   };
 
@@ -2765,106 +2504,363 @@ function tryFetch(url, init) {
   return _Promise.result(_fetch$1(url, init));
 }
 
-const AsyncResult = function (__exports) {
-  const bind$$1 = __exports.bind = function (func, asyncResult) {
-    return function (builder_) {
-      return builder_.Delay(function () {
-        return builder_.Bind(asyncResult, function (_arg1) {
-          return builder_.Bind(_arg1.tag === 0 ? func(_arg1.data) : function (builder__1) {
-            return builder__1.Delay(function () {
-              return builder__1.Return(new Result(1, _arg1.data));
-            });
-          }(singleton), function (_arg2) {
-            return builder_.Return(_arg2);
-          });
-        });
-      });
-    }(singleton);
+class DecodeResult {
+  constructor(tag, data) {
+    this.tag = tag;
+    this.data = data;
+  }
+
+  [_Symbol.reflection]() {
+    return {
+      type: "Fable.EdIlyin.Core.Decode.DecodeResult",
+      interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
+      cases: [["Decoded", GenericParam("T")], ["ExpectingButGot", "string", "string"], ["ErrorMessage", "string"]]
+    };
+  }
+
+  Equals(other) {
+    return this === other || this.tag === other.tag && equals(this.data, other.data);
+  }
+
+  CompareTo(other) {
+    return compareUnions(this, other) | 0;
+  }
+
+}
+setType("Fable.EdIlyin.Core.Decode.DecodeResult", DecodeResult);
+class Decoder {
+  constructor(decoder, label) {
+    this.decoder = decoder;
+    this.label = label;
+  }
+
+  [_Symbol.reflection]() {
+    return {
+      type: "Fable.EdIlyin.Core.Decode.Decoder",
+      interfaces: ["FSharpRecord"],
+      properties: {
+        decoder: FableFunction([GenericParam("From"), makeGeneric(DecodeResult, {
+          T: GenericParam("To")
+        })]),
+        label: "string"
+      }
+    };
+  }
+
+}
+setType("Fable.EdIlyin.Core.Decode.Decoder", Decoder);
+function run(decoder, jsonValue) {
+  return decoder.decoder(jsonValue);
+}
+function decode(decoder, source) {
+  return function (_arg1) {
+    return _arg1.tag === 1 ? new Result(1, {
+      formatFn: fsFormat("Expecting %s, but instead got: %A"),
+      input: "Expecting %s, but instead got: %A"
+    }.formatFn(x => x)(_arg1.data[0], _arg1.data[1])) : _arg1.tag === 2 ? new Result(1, _arg1.data) : new Result(0, _arg1.data);
+  }(run(decoder, source));
+}
+function primitive(label, func) {
+  return new Decoder(func, label);
+}
+
+function succeed(value) {
+  return ($var1 => function (label, func) {
+    return primitive(label, func);
+  }({
+    formatFn: fsFormat("%A"),
+    input: "%A"
+  }.formatFn(x => x)(value), $var1))(function (_arg1) {
+    return new DecodeResult(0, value);
+  });
+}
+
+function getLabel(decoder) {
+  return decoder.label;
+}
+function setLabel(label, decoder) {
+  return new Decoder(decoder.decoder, label);
+}
+function op_LessQmarkGreater(decoder, label) {
+  return setLabel(label, decoder);
+}
+function andThen(func, decoder) {
+  const label = getLabel(decoder);
+  return primitive(label, function (input) {
+    const matchValue = run(decoder, input);
+
+    if (matchValue.tag === 1) {
+      return function (tupledArg) {
+        return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
+      }(op_EqualsGreater(matchValue.data[0], matchValue.data[1]));
+    } else if (matchValue.tag === 2) {
+      return new DecodeResult(2, matchValue.data);
+    } else {
+      return run(func(matchValue.data), input);
+    }
+  });
+}
+function op_GreaterGreaterEquals(decoder, func) {
+  return andThen(func, decoder);
+}
+function andMap(decoder, functionDecoder) {
+  return op_GreaterGreaterEquals(functionDecoder, function (func) {
+    return op_GreaterGreaterEquals(decoder, $var2 => function (value) {
+      return succeed(value);
+    }(func($var2)));
+  });
+}
+function op_LessMultiplyGreater(fnDecoder, decoder) {
+  return andMap(decoder, fnDecoder);
+}
+function map$6(func, decoder) {
+  return op_LessQmarkGreater(op_LessMultiplyGreater(succeed(func), decoder), {
+    formatFn: fsFormat("{ %s }"),
+    input: "{ %s }"
+  }.formatFn(x => x)(getLabel(decoder)));
+}
+
+function object(fields) {
+  return createObj(fields, 0);
+}
+function string(x) {
+  return x;
+}
+
+const Result$1 = function (__exports) {
+  const map2$$1 = __exports.map2 = function (fn, a, b) {
+    const matchValue = [a, b];
+
+    if (matchValue[0].tag === 1) {
+      return new Result(1, matchValue[0].data);
+    } else if (matchValue[1].tag === 1) {
+      return new Result(1, matchValue[1].data);
+    } else {
+      return new Result(0, fn(matchValue[0].data, matchValue[1].data));
+    }
   };
 
-  const succeed = __exports.succeed = function (a) {
-    return function (builder_) {
-      return builder_.Delay(function () {
-        return builder_.Return(new Result(0, a));
-      });
-    }(singleton);
+  const combineList = __exports.combineList = function (list) {
+    return (() => {
+      let folder;
+
+      const fn = function (e, l) {
+        return new List(e, l);
+      };
+
+      folder = function (a, b) {
+        return map2$$1(fn, a, b);
+      };
+
+      return function (state) {
+        return foldBack(folder, list, state);
+      };
+    })()(new Result(0, new List()));
   };
 
-  const AsyncResultBuilder = __exports.AsyncResultBuilder = class AsyncResultBuilder {
+  const combineArray = __exports.combineArray = function (array) {
+    return fold((() => {
+      const fn = function (a, e) {
+        return function (array2) {
+          return a.concat(array2);
+        }(Array.from(singleton$1(e)));
+      };
+
+      return function (a_1, b) {
+        return map2$$1(fn, a_1, b);
+      };
+    })(), new Result(0, new Array(0)), array);
+  };
+
+  const ofOption = __exports.ofOption = function (error, option) {
+    if (option != null) {
+      return new Result(0, option);
+    } else {
+      return new Result(1, error);
+    }
+  };
+
+  const ofChoice = __exports.ofChoice = function (choice) {
+    if (choice.tag === 1) {
+      return new Result(1, choice.data);
+    } else {
+      return new Result(0, choice.data);
+    }
+  };
+
+  const fromResultResult = __exports.fromResultResult = function (resultResult) {
+    const $var1 = resultResult.tag === 1 ? [1, resultResult.data] : resultResult.data.tag === 1 ? [1, resultResult.data.data] : [0, resultResult.data.data];
+
+    switch ($var1[0]) {
+      case 0:
+        return new Result(0, $var1[1]);
+
+      case 1:
+        return new Result(1, $var1[1]);
+    }
+  };
+
+  const andThen = __exports.andThen = function () {
+    return function (binder, result) {
+      return bind(binder, result);
+    };
+  };
+
+  const Builder = __exports.Builder = class Builder {
     [_Symbol.reflection]() {
       return {
-        type: "Fable.EdIlyin.Core.AsyncResult.AsyncResultBuilder",
+        type: "Fable.EdIlyin.Core.Result.Builder",
         properties: {}
       };
     }
 
     constructor() {}
 
-    Bind(pr, f) {
-      return bind$$1(f, pr);
+    Bind(m, f) {
+      return bind(f, m);
     }
 
-    Return(a) {
-      return succeed(a);
+    Return(x) {
+      return new Result(0, x);
+    }
+
+    ReturnFrom(m) {
+      return m;
+    }
+
+    Zero() {
+      return new Result(0, null);
     }
 
   };
-  setType("Fable.EdIlyin.Core.AsyncResult.AsyncResultBuilder", AsyncResultBuilder);
+  setType("Fable.EdIlyin.Core.Result.Builder", Builder);
+  return __exports;
+}({});
+const ResultAutoOpen = function (__exports) {
+  const result = __exports.result = new Result$1.Builder();
+  return __exports;
+}({});
 
-  const fromResultAsync = __exports.fromResultAsync = function (resultAsync) {
-    if (resultAsync.tag === 0) {
-      return op_BarGreaterGreater(resultAsync.data, function (arg0) {
-        return new Result(0, arg0);
-      });
+function decodeValue(decoder, jsonValue) {
+  return decode(decoder, jsonValue);
+}
+
+const value = primitive("a POJO", function (arg0) {
+  return new DecodeResult(0, arg0);
+});
+function field(name, decoder) {
+  const label = {
+    formatFn: fsFormat("%s field '%s'"),
+    input: "%s field '%s'"
+  }.formatFn(x => x)(getLabel(decoder), name);
+  return primitive(label, function (o) {
+    const matchValue = Object.prototype.hasOwnProperty.call(o, name);
+
+    if (matchValue) {
+      return function (jsonValue) {
+        return run(decoder, jsonValue);
+      }(o[name]);
     } else {
-      return function (arg00) {
-        return singleton.Return(arg00);
-      }(new Result(1, resultAsync.data));
+      return new DecodeResult(1, [label, {
+        formatFn: fsFormat("%A"),
+        input: "%A"
+      }.formatFn(x => x)(o)]);
     }
-  };
-
-  return __exports;
-}({});
-const AsyncResultImpl = function (__exports) {
-  const asyncResult = __exports.asyncResult = new AsyncResult.AsyncResultBuilder();
-  return __exports;
-}({});
-
-function object(fields) {
-  return createObj(fields, 0);
-}
-function string$1(x) {
-  return x;
-}
-
-es6Promise.polyfill();
-function json(decoder) {
-  return primitive("an JSON", function (response) {
-    return new DecodeResult(0, function (builder_) {
-      return builder_.Delay(function () {
-        return builder_.Bind(awaitPromise(response.json()), function (_arg1) {
-          const result = decodeValue(decoder, _arg1);
-          return builder_.Return(result);
-        });
-      });
-    }(singleton));
   });
 }
 
+const bool$1 = primitive("a Bool", function (o) {
+  return typeof o === "boolean" ? new DecodeResult(0, o) : function (tupledArg) {
+    return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
+  }(op_EqualsGreater("a Bool", {
+    formatFn: fsFormat("%A"),
+    input: "%A"
+  }.formatFn(x => x)(o)));
+});
+
+const _int$1 = primitive("an Int", function (o) {
+  return (value => {
+    if (typeof value !== "number") {
+      return false;
+    }
+
+    
+
+    if (-2147483648 <= value && value <= 2147483647 && (value | 0) === value) {
+      return true;
+    }
+
+    if (isFinite(value) && !(value % 1)) {
+      return true;
+    }
+
+    
+    return false;
+  })(o) ? new DecodeResult(0, o) : function (tupledArg) {
+    return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
+  }(op_EqualsGreater("an Int", {
+    formatFn: fsFormat("%A"),
+    input: "%A"
+  }.formatFn(x => x)(o)));
+});
+
+const int64$1 = primitive("an Int64", function (o) {
+  return (value => {
+    if (typeof value !== "number") {
+      return false;
+    }
+
+    
+
+    if (-9223372036854775808 <= value && value <= 9223372032559808512 && (value | 0) === value) {
+      return true;
+    }
+
+    if (isFinite(value) && !(value % 1)) {
+      return true;
+    }
+
+    
+    return false;
+  })(o) ? new DecodeResult(0, o) : function (tupledArg) {
+    return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
+  }(op_EqualsGreater("an Int64", {
+    formatFn: fsFormat("%A"),
+    input: "%A"
+  }.formatFn(x => x)(o)));
+});
+
+const _float$1 = primitive("a Float", function (o) {
+  return typeof o === "number" ? new DecodeResult(0, o) : function (tupledArg) {
+    return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
+  }(op_EqualsGreater("a Float", {
+    formatFn: fsFormat("%A"),
+    input: "%A"
+  }.formatFn(x => x)(o)));
+});
+
+
+const dateTime = map$6(function (i) {
+  const start = create$1(1970, 1, 1, 0, 0, 0, 0, 1);
+  return addSeconds(start, i);
+}, _float$1);
+const string$1 = primitive("a String", function (o) {
+  return typeof o === "string" ? new DecodeResult(0, o) : function (tupledArg) {
+    return new DecodeResult(1, [tupledArg[0], tupledArg[1]]);
+  }(op_EqualsGreater("a String", {
+    formatFn: fsFormat("%A"),
+    input: "%A"
+  }.formatFn(x => x)(o)));
+});
+
+es6Promise.polyfill();
+
 function _fetch(url, properties, decoder) {
   return function (builder_) {
-    return builder_.Bind(AsyncResultLog.fromAsyncResult("try fetch", op_BarGreaterGreater(awaitPromise(tryFetch(url, properties)), (() => {
-      const mapping = function (value$$1) {
-        return toString(value$$1);
-      };
-
-      return function (result) {
-        return mapError(mapping, result);
-      };
-    })())), function (_arg1) {
-      return builder_.Bind(AsyncResultLog.fromAsyncResult("decode", op_BarGreaterGreater(AsyncResult.fromResultAsync(decode(decoder, _arg1)), function (resultResult) {
-        return Result$1.fromResultResult(resultResult);
-      })), function (_arg2) {
+    return builder_.Bind(AsyncResultLog.mapError(function (e) {
+      return e.message;
+    }, AsyncResultLog.fromPromiseResult("try fetch", tryFetch(url, properties))), function (_arg1) {
+      return builder_.Bind(AsyncResultLog.fromResultAsyncResult("decode", decode(decoder, _arg1)), function (_arg2) {
         return builder_.Return(_arg2);
       });
     });
@@ -2880,12 +2876,25 @@ function get(url, headers, decoder) {
 const text = primitive("a Text", function (response) {
   return new DecodeResult(0, function (builder_) {
     return builder_.Delay(function () {
-      return builder_.Bind(awaitPromise(response.text()), function (_arg1) {
-        return builder_.Return(new Result(0, _arg1));
+      return builder_.Bind(catchAsync(awaitPromise(response.text())), function (_arg1) {
+        const result = _arg1.tag === 1 ? new Result(1, _arg1.data.message) : new Result(0, _arg1.data);
+        return builder_.Return(result);
       });
     });
   }(singleton));
 });
+function json(decoder) {
+  return primitive("an JSON", function (response) {
+    return new DecodeResult(0, function (builder_) {
+      return builder_.Delay(function () {
+        return builder_.Bind(awaitPromise(response.json()), function (_arg1) {
+          const result = decodeValue(decoder, _arg1);
+          return builder_.Return(result);
+        });
+      });
+    }(singleton));
+  });
+}
 
 function equal(expected, actual) {
   const assert_ = assert;
@@ -2897,7 +2906,7 @@ it("fetch: json echo", function () {
   }(function (builder_) {
     return builder_.Delay(function () {
       return builder_.Bind(get("http://echo.jsontest.com/abba/babba", new List(), json(value)), function (_arg1) {
-        const result = equal(new Result(0, object(ofArray$1([["abba", string$1("babba")]]))), _arg1[0]);
+        const result = equal(new Result(0, object(ofArray$1([["abba", string("babba")]]))), _arg1[0]);
         return builder_.Return();
       });
     });
@@ -2909,7 +2918,7 @@ it("fetch: wrong address", function () {
   }(function (builder__1) {
     return builder__1.Delay(function () {
       return builder__1.Bind(get("http://echoa.jsontest.com", new List(), text), function (_arg1_1) {
-        const result_1 = equal(new Result(1, "{\"name\":\"FetchError\",\"message\":\"request to http://echoa.jsontest.com failed, reason: getaddrinfo ENOTFOUND echoa.jsontest.com echoa.jsontest.com:80\",\"type\":\"system\",\"errno\":\"ENOTFOUND\",\"code\":\"ENOTFOUND\"}"), _arg1_1[0]);
+        const result_1 = equal(new Result(1, "request to http://echoa.jsontest.com failed, reason: getaddrinfo ENOTFOUND echoa.jsontest.com echoa.jsontest.com:80"), _arg1_1[0]);
         return builder__1.Return();
       });
     });
@@ -2920,7 +2929,7 @@ it("fetch: json echo with decoder", function () {
     return startAsPromise(arg00_2);
   }(function (builder__2) {
     return builder__2.Delay(function () {
-      return builder__2.Bind(get("http://echo.jsontest.com/abba/babba", new List(), json(field("abba", string))), function (_arg1_2) {
+      return builder__2.Bind(get("http://echo.jsontest.com/abba/babba", new List(), json(field("abba", string$1))), function (_arg1_2) {
         const result_2 = equal(new Result(0, "babba"), _arg1_2[0]);
         return builder__2.Return();
       });
@@ -2932,7 +2941,7 @@ it("fetch: json echo with decoder: error", function () {
     return startAsPromise(arg00_3);
   }(function (builder__3) {
     return builder__3.Delay(function () {
-      return builder__3.Bind(get("http://echo.jsontest.com/abba/babba", new List(), json(field("abbax", string))), function (_arg1_3) {
+      return builder__3.Bind(get("http://echo.jsontest.com/abba/babba", new List(), json(field("abbax", string$1))), function (_arg1_3) {
         const result_3 = equal(new Result(1, "Expecting a String field 'abbax', but instead got: \"{\\\"abba\\\":\\\"babba\\\"}\""), _arg1_3[0]);
         return builder__3.Return();
       });
@@ -3019,6 +3028,18 @@ function pull(_arg1) {
 }
 function length(_arg1) {
   return _arg1.data[0].length + _arg1.data[1].length | 0;
+}
+
+function op_GreaterGreaterEquals$1(asyn, func) {
+  return singleton.Bind(asyn, func);
+}
+function map$7(func, asyn) {
+  return op_GreaterGreaterEquals$1(asyn, $var1 => function (arg00) {
+    return singleton.Return(arg00);
+  }(func($var1)));
+}
+function op_BarGreaterGreater(asyn, func) {
+  return map$7(func, asyn);
 }
 
 class QueueCell {
@@ -3159,7 +3180,7 @@ class Msg {
 }
 setType("Fable.EdIlyin.Core.Throttle.Msg", Msg);
 function nowMilliseconds() {
-  const milliseconds$$1 = create$1((() => {
+  const milliseconds$$1 = create$2((() => {
     let copyOfStruct = now();
     return ticks(copyOfStruct);
   })());
@@ -3176,7 +3197,7 @@ function execute(func, channel, model) {
 }
 
 function _fetch$2(model, func, channel) {
-  return map$6(function (model_1) {
+  return map$7(function (model_1) {
     return execute(func, channel, model_1);
   }, (() => {
     const matchValue = length(model.queue) | 0;
@@ -3275,7 +3296,7 @@ function multipleFunTest(func_2, unitVar1) {
     return startAsPromise(arg00_2);
   }(function (builder__3) {
     return builder__3.Delay(function () {
-      return builder__3.Bind(parallel(initialize$2(22, function (_arg1_2) {
+      return builder__3.Bind(parallel(initialize$1(22, function (_arg1_2) {
         return func_2(function (func_3) {
           return add$4(throttler_2, func_3);
         });

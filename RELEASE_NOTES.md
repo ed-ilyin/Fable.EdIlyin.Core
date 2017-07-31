@@ -1,4 +1,10 @@
-### 0.0.14 - 28 July 2017
+### 0.0.16 - 31 July 2017
+* fixes functions signaturesß
+
+#### 0.0.15 - 28 July 2017
+* error test
+
+#### 0.0.14 - 28 July 2017
 * adds AsyncResultLog.print maxChars
 
 #### 0.0.13 - 28 July 2017

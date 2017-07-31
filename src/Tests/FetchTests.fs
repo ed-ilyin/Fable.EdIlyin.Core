@@ -49,7 +49,8 @@ it "fetch: wrong address" <| fun () ->
 
             let result =
                 equal
-                    ("{\"name\":\"FetchError\",\"message\":\"request to http://echoa.jsontest.com failed, reason: getaddrinfo ENOTFOUND echoa.jsontest.com echoa.jsontest.com:80\",\"type\":\"system\",\"errno\":\"ENOTFOUND\",\"code\":\"ENOTFOUND\"}"
+                    // ("{\"name\":\"FetchError\",\"message\":\"request to http://echoa.jsontest.com failed, reason: getaddrinfo ENOTFOUND echoa.jsontest.com echoa.jsontest.com:80\",\"type\":\"system\",\"errno\":\"ENOTFOUND\",\"code\":\"ENOTFOUND\"}"
+                    ("request to http://echoa.jsontest.com failed, reason: getaddrinfo ENOTFOUND echoa.jsontest.com echoa.jsontest.com:80"
                         |> Error
                     )
                     x

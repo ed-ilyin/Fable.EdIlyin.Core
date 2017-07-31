@@ -2,9 +2,9 @@ module Fable.EdIlyin.Core.Http.Fetch
 
 open Fable.Core
 open Fable.EdIlyin.Core
-open Fable.EdIlyin.Core.Async
 open Fable.PowerPack
 open Fable.PowerPack.Fetch
+open Fable.Import
 
 
 [<Import("polyfill","es6-promise")>]
@@ -17,33 +17,19 @@ do promisePolyfill ()
 do JsInterop.importSideEffects "isomorphic-fetch"
 
 
-let json decoder =
-    Decode.primitive "an JSON"
-        (fun (response: Response) ->
-            async {
-                let! json = response.json () |> Async.AwaitPromise
-                let result = Json.Decode.decodeValue decoder json
-                return result
-            }
-                |> Decode.Decoded
-        )
-
-
 let fetch url properties decoder =
     asyncResultLog {
         let! response =
             Fetch.tryFetch url properties
-                |> Async.AwaitPromise
-                |>> Result.mapError string
-                |> AsyncResultLog.fromAsyncResult "try fetch"
+                |> AsyncResultLog.fromPromiseResult "try fetch"
+                |> AsyncResultLog.mapError
+                    (fun (e: System.Exception) -> e.Message)
 
-        let! decodedResponse =
+        let! response =
             Decode.decode decoder response
-                |> AsyncResult.fromResultAsync
-                |>> Result.fromResultResult
-                |> AsyncResultLog.fromAsyncResult "decode"
+                |> AsyncResultLog.fromResultAsyncResult "decode"
 
-        return decodedResponse
+        return response
     }
 
 
@@ -80,12 +66,34 @@ let postJson url headers pojo decoder =
 
     fetch url properties decoder
 
+
 let text: Decode.Decoder<Response,Async<Result<string,string>>> =
     Decode.primitive "a Text"
         (fun (response: Response) ->
-            async {
-                let! result = response.text () |> Async.AwaitPromise
-                return Ok result
-            }
+            async
+                {   let! textChoice =
+                        response.text ()
+                            |> Async.AwaitPromise
+                            |> Async.Catch
+
+                    let result =
+                        match textChoice with
+                            | Choice1Of2 text -> Ok text
+                            | Choice2Of2 error -> Error error.Message
+
+                    return result
+                }
+                |> Decode.Decoded
+        )
+
+
+let json decoder =
+    Decode.primitive "an JSON"
+        (fun (response: Response) ->
+            async
+                {   let! json = response.json () |> Async.AwaitPromise
+                    let result = Json.Decode.decodeValue decoder json
+                    return result
+                }
                 |> Decode.Decoded
         )

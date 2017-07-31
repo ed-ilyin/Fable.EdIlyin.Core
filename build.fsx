@@ -386,7 +386,7 @@ Target "Build" (fun () ->
     for pkg in packages do
         let projFile = __SOURCE_DIRECTORY__ </> (pkg + ".fsproj")
         let projDir = Path.GetDirectoryName(projFile)
-        Util.run projDir dotnetExePath "restore"
+        Util.run null dotnetExePath "restore"
         Util.run projDir dotnetExePath "build"
 )
 
