@@ -2166,120 +2166,6 @@ function flip(func, x, y) {
   return func(y, x);
 }
 
-const Result$1 = function (__exports) {
-  const map2$$1 = __exports.map2 = function (fn, a, b) {
-    const matchValue = [a, b];
-
-    if (matchValue[0].tag === 1) {
-      return new Result(1, matchValue[0].data);
-    } else if (matchValue[1].tag === 1) {
-      return new Result(1, matchValue[1].data);
-    } else {
-      return new Result(0, fn(matchValue[0].data, matchValue[1].data));
-    }
-  };
-
-  const combineList = __exports.combineList = function (list) {
-    return (() => {
-      let folder;
-
-      const fn = function (e, l) {
-        return new List(e, l);
-      };
-
-      folder = function (a, b) {
-        return map2$$1(fn, a, b);
-      };
-
-      return function (state) {
-        return foldBack(folder, list, state);
-      };
-    })()(new Result(0, new List()));
-  };
-
-  const combineArray = __exports.combineArray = function (array) {
-    return fold((() => {
-      const fn = function (a, e) {
-        return function (array2) {
-          return a.concat(array2);
-        }(Array.from(singleton$1(e)));
-      };
-
-      return function (a_1, b) {
-        return map2$$1(fn, a_1, b);
-      };
-    })(), new Result(0, new Array(0)), array);
-  };
-
-  const ofOption = __exports.ofOption = function (error, option) {
-    if (option != null) {
-      return new Result(0, option);
-    } else {
-      return new Result(1, error);
-    }
-  };
-
-  const ofChoice = __exports.ofChoice = function (choice) {
-    if (choice.tag === 1) {
-      return new Result(1, choice.data);
-    } else {
-      return new Result(0, choice.data);
-    }
-  };
-
-  const fromResultResult = __exports.fromResultResult = function (resultResult) {
-    const $var1 = resultResult.tag === 1 ? [1, resultResult.data] : resultResult.data.tag === 1 ? [1, resultResult.data.data] : [0, resultResult.data.data];
-
-    switch ($var1[0]) {
-      case 0:
-        return new Result(0, $var1[1]);
-
-      case 1:
-        return new Result(1, $var1[1]);
-    }
-  };
-
-  const andThen = __exports.andThen = function () {
-    return function (binder, result) {
-      return bind(binder, result);
-    };
-  };
-
-  const Builder = __exports.Builder = class Builder {
-    [_Symbol.reflection]() {
-      return {
-        type: "Fable.EdIlyin.Core.Result.Builder",
-        properties: {}
-      };
-    }
-
-    constructor() {}
-
-    Bind(m, f) {
-      return bind(f, m);
-    }
-
-    Return(x) {
-      return new Result(0, x);
-    }
-
-    ReturnFrom(m) {
-      return m;
-    }
-
-    Zero() {
-      return new Result(0, null);
-    }
-
-  };
-  setType("Fable.EdIlyin.Core.Result.Builder", Builder);
-  return __exports;
-}({});
-const ResultAutoOpen = function (__exports) {
-  const result = __exports.result = new Result$1.Builder();
-  return __exports;
-}({});
-
 const AsyncResultLog = function (__exports) {
   const log = __exports.log = function (tag, result) {
     return ofArray$1([[tag, {
@@ -2446,20 +2332,64 @@ const AsyncResultLog = function (__exports) {
     return function (builder_) {
       return builder_.Delay(function () {
         return builder_.Bind(catchAsync(asyncResultLog), function (_arg1) {
-          const result = Result$1.ofChoice(_arg1);
           let response;
 
-          if (result.tag === 0) {
-            const copyOfStruct = result.data[0];
+          if (_arg1.tag === 0) {
+            const copyOfStruct = _arg1.data[0];
 
             if (copyOfStruct.tag === 0) {
-              response = [new Result(0, copyOfStruct.data), append$1(result.data[1], log("catch", new Result(0, copyOfStruct.data)))];
+              response = [new Result(0, copyOfStruct.data), append$1(_arg1.data[1], log("catch", new Result(0, copyOfStruct.data)))];
             } else {
-              response = [new Result(1, copyOfStruct.data), append$1(result.data[1], log("catch", new Result(1, copyOfStruct.data)))];
+              response = [new Result(1, copyOfStruct.data), append$1(_arg1.data[1], log("catch", new Result(1, copyOfStruct.data)))];
             }
           } else {
-            response = resultLog("catch", new Result(1, result.data.message));
+            response = resultLog("catch", new Result(1, _arg1.data.message));
           }
+
+          return builder_.Return(response);
+        });
+      });
+    }(singleton);
+  };
+
+  const resultLogMap2 = __exports.resultLogMap2 = function (func, rl1_0, rl1_1, rl2_0, rl2_1) {
+    const rl1 = [rl1_0, rl1_1];
+    const rl2 = [rl2_0, rl2_1];
+    const l = append$1(rl1[1], rl2[1]);
+    const matchValue = [rl1[0], rl2[0]];
+
+    if (matchValue[0].tag === 0) {
+      if (matchValue[1].tag === 0) {
+        return op_EqualsGreater(new Result(0, func(matchValue[0].data, matchValue[1].data)), l);
+      } else {
+        return [new Result(1, matchValue[1].data), l];
+      }
+    } else {
+      return [new Result(1, matchValue[0].data), l];
+    }
+  };
+
+  const conCollect = __exports.conCollect = function (asyncResultLogList) {
+    return function (builder_) {
+      return builder_.Delay(function () {
+        return builder_.Bind(parallel(asyncResultLogList), function (_arg1) {
+          const response = function (list) {
+            return (() => {
+              let folder;
+
+              const func = function (e, l) {
+                return new List(e, l);
+              };
+
+              folder = function (tupledArg, tupledArg_1) {
+                return resultLogMap2(func, tupledArg[0], tupledArg[1], tupledArg_1[0], tupledArg_1[1]);
+              };
+
+              return function (state) {
+                return foldBack(folder, list, state);
+              };
+            })()(op_EqualsGreater(new Result(0, new List()), new List()));
+          }(ofArray$1(_arg1));
 
           return builder_.Return(response);
         });
@@ -2752,6 +2682,120 @@ function string(x) {
   return x;
 }
 
+const Result$1 = function (__exports) {
+  const map2$$1 = __exports.map2 = function (fn, a, b) {
+    const matchValue = [a, b];
+
+    if (matchValue[0].tag === 1) {
+      return new Result(1, matchValue[0].data);
+    } else if (matchValue[1].tag === 1) {
+      return new Result(1, matchValue[1].data);
+    } else {
+      return new Result(0, fn(matchValue[0].data, matchValue[1].data));
+    }
+  };
+
+  const combineList = __exports.combineList = function (list) {
+    return (() => {
+      let folder;
+
+      const fn = function (e, l) {
+        return new List(e, l);
+      };
+
+      folder = function (a, b) {
+        return map2$$1(fn, a, b);
+      };
+
+      return function (state) {
+        return foldBack(folder, list, state);
+      };
+    })()(new Result(0, new List()));
+  };
+
+  const combineArray = __exports.combineArray = function (array) {
+    return fold((() => {
+      const fn = function (a, e) {
+        return function (array2) {
+          return a.concat(array2);
+        }(Array.from(singleton$1(e)));
+      };
+
+      return function (a_1, b) {
+        return map2$$1(fn, a_1, b);
+      };
+    })(), new Result(0, new Array(0)), array);
+  };
+
+  const ofOption = __exports.ofOption = function (error, option) {
+    if (option != null) {
+      return new Result(0, option);
+    } else {
+      return new Result(1, error);
+    }
+  };
+
+  const ofChoice = __exports.ofChoice = function (choice) {
+    if (choice.tag === 1) {
+      return new Result(1, choice.data);
+    } else {
+      return new Result(0, choice.data);
+    }
+  };
+
+  const fromResultResult = __exports.fromResultResult = function (resultResult) {
+    const $var1 = resultResult.tag === 1 ? [1, resultResult.data] : resultResult.data.tag === 1 ? [1, resultResult.data.data] : [0, resultResult.data.data];
+
+    switch ($var1[0]) {
+      case 0:
+        return new Result(0, $var1[1]);
+
+      case 1:
+        return new Result(1, $var1[1]);
+    }
+  };
+
+  const andThen = __exports.andThen = function () {
+    return function (binder, result) {
+      return bind(binder, result);
+    };
+  };
+
+  const Builder = __exports.Builder = class Builder {
+    [_Symbol.reflection]() {
+      return {
+        type: "Fable.EdIlyin.Core.Result.Builder",
+        properties: {}
+      };
+    }
+
+    constructor() {}
+
+    Bind(m, f) {
+      return bind(f, m);
+    }
+
+    Return(x) {
+      return new Result(0, x);
+    }
+
+    ReturnFrom(m) {
+      return m;
+    }
+
+    Zero() {
+      return new Result(0, null);
+    }
+
+  };
+  setType("Fable.EdIlyin.Core.Result.Builder", Builder);
+  return __exports;
+}({});
+const ResultAutoOpen = function (__exports) {
+  const result = __exports.result = new Result$1.Builder();
+  return __exports;
+}({});
+
 function decodeValue(decoder, jsonValue) {
   return decode(decoder, jsonValue);
 }
@@ -2867,7 +2911,7 @@ const string$1 = primitive("a String", function (o) {
 es6Promise.polyfill();
 
 function _fetch(url, properties, decoder) {
-  return function (builder_) {
+  return AsyncResultLog.catch(function (builder_) {
     return builder_.Bind(AsyncResultLog.mapError(function (e) {
       return e.message;
     }, AsyncResultLog.fromPromiseResult("try fetch", _Promise.result(fetch(url, createObj(properties, 1))))), function (_arg1) {
@@ -2875,7 +2919,7 @@ function _fetch(url, properties, decoder) {
         return builder_.Return(_arg2);
       });
     });
-  }(AsyncResultLogAutoOpen.asyncResultLog);
+  }(AsyncResultLogAutoOpen.asyncResultLog));
 }
 
 function get(url, headers, decoder) {

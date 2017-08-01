@@ -10,9 +10,7 @@ open Fake.AssemblyInfoFile
 open Fake.Git
 open Fake.ReleaseNotesHelper
 
-let packages = [
-    "src/Fable.EdIlyin.Core/Fable.EdIlyin.Core"
-]
+let packages = [ "src/Fable.EdIlyin.Core/Fable.EdIlyin.Core" ]
 
 #if MONO
 // prevent incorrect output encoding (e.g. https://github.com/fsharp/FAKE/issues/1196)

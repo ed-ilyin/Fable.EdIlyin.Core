@@ -1,4 +1,10 @@
-### 0.0.18 - 31 July 2017
+### 0.0.20 - 31 July 2017
+* adds AsyncResultLog.conCollect
+
+#### 0.0.19 - 31 July 2017
+* catches fetch exceptions
+
+#### 0.0.18 - 31 July 2017
 * adds AsyncResultLog.catch
 
 #### 0.0.17 - 31 July 2017

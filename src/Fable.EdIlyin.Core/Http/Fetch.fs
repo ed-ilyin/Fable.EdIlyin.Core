@@ -34,6 +34,7 @@ let fetch url properties decoder =
 
         return response
     }
+        |> AsyncResultLog.catch
 
 
 let get url headers decoder =

@@ -44,6 +44,7 @@ module AsyncResultLog =
 
     type ComputationExpression () =
         member this.Bind (m, f) = andThen f m
+        member this.Bind ((tag, m), f) = andThen f m
         member this.Return x = singleton "return" x
         member this.ReturnFrom m = m
 
@@ -121,20 +122,54 @@ module AsyncResultLog =
     let catch asyncResultLog =
         async
             {   let! choice = asyncResultLog |> Async.Catch
-                let result = Result.ofChoice choice
 
                 let response =
-                    match result with
-                        | Error e ->
+                    match choice with
+                        | Choice2Of2 e ->
                             Error e.Message |> resultLog "catch"
 
-                        | Ok (Error e, l) ->
+                        | Choice1Of2 (Error e, l) ->
                             Error e, l @ log "catch" (Error e)
 
-                        | Ok (Ok x, l) -> Ok x, l @ log "catch" (Ok x)
+                        | Choice1Of2 (Ok x, l) ->
+                            Ok x, l @ log "catch" (Ok x)
 
                 return response
             }
+
+
+    let resultLogMap2 func rl1 rl2 =
+        let r1, l1 = rl1
+        let r2, l2 = rl2
+        let l = l1 @ l2
+
+        match r1, r2 with
+            | Error e, _ -> Error e, l
+            | _, Error e -> Error e, l
+            | Ok x1, Ok x2 -> func x1 x2 |> Ok => l
+
+
+
+    let conCollect asyncResultLogList =
+        async
+            {   let! resultLogArray =
+                    asyncResultLogList |> Async.Parallel
+
+                let response =
+                    resultLogArray
+                        |> List.ofArray
+                        |> (fun list ->
+                            Ok List.empty
+                                => List.empty
+                                |> List.foldBack
+                                    (resultLogMap2 (fun e l -> e :: l)
+                                    )
+                                    list
+                            )
+
+                return response
+            }
+
 
 
 [<AutoOpen>]
