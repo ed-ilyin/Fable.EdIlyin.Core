@@ -67,7 +67,7 @@ Target "CleanDocs" (fun _ ->
 
 // --------------------------------------------------------------------------------------
 // Generate the documentation
-let githubLink = "git@github.com:fable-compiler/fable-powerpack.git"
+let githubLink = "git@github.com:ed-ilyin/Fable.EdIlyin.Core.git"
 let publishBranch = "gh-pages"
 let fableRoot   = __SOURCE_DIRECTORY__
 let temp        = fableRoot </> "temp"
