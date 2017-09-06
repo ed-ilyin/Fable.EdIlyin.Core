@@ -3,7 +3,6 @@
     <TargetFramework>netstandard1.6</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="AsyncResultLogTests.fs" />
     <Compile Include="FetchTests.fs" />
     <Compile Include="ResultTests.fs" />
     <Compile Include="ThrottleTests.fs" />

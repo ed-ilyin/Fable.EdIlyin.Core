@@ -5,3 +5,10 @@ nuget FSharp.Core
 nuget Fable.Core
 nuget Fable.PowerPack
 clitool dotnet-fable
+
+group Build
+framework: net46
+
+    source https://nuget.org/api/v2
+    nuget FSharp.Core  redirects:force, content:none
+    nuget FAKE

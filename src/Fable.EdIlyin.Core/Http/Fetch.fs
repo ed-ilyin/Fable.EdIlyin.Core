@@ -90,6 +90,6 @@ let json decoder =
         )
 
 
-let response =
+let response: Decode.Decoder<Response,JS.Promise<Result<Response,string>>> =
     Decode.primitive "an HTTP response"
         (Ok >> promise.Return >> Decode.Decoded)

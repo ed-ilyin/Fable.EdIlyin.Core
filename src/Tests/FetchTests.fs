@@ -5,6 +5,7 @@ open Fable.Core.JsInterop
 open Fable.EdIlyin.Core
 open Fable.EdIlyin.Core.Http
 open Fable.Import
+open Fable.PowerPack
 
 
 module JD = Fable.EdIlyin.Core.Json.Decode
@@ -23,8 +24,8 @@ let it (msg: string) (f: unit->JS.Promise<'T>): unit = jsNative
 
 
 it "fetch: json echo" <| fun () ->
-    async
-        {   let! x, _ =
+    promise
+        {   let! x =
                 Fetch.json Json.Decode.value
                     |> Fetch.get "http://echo.jsontest.com/abba/babba"
                         []
@@ -39,12 +40,11 @@ it "fetch: json echo" <| fun () ->
 
             return result
         }
-        |> Async.StartAsPromise
 
 
 it "fetch: wrong address" <| fun () ->
-    async
-        {   let! x, _ =
+    promise
+        {   let! x =
                 Fetch.get "http://echoa.jsontest.com" [] Fetch.text
 
             let result =
@@ -57,12 +57,11 @@ it "fetch: wrong address" <| fun () ->
 
             return result
         }
-        |> Async.StartAsPromise
 
 
 it "fetch: json echo with decoder" <| fun () ->
-    async
-        {   let! x, _ =
+    promise
+        {   let! x =
                 JD.field "abba" JD.string
                     |> Fetch.json
                     |> Fetch.get "http://echo.jsontest.com/abba/babba"
@@ -71,12 +70,11 @@ it "fetch: json echo with decoder" <| fun () ->
             let result = equal (Ok "babba") x
             return result
         }
-        |> Async.StartAsPromise
 
 
 it "fetch: json echo with decoder: error" <| fun () ->
-    async
-        {   let! x, _ =
+    promise
+        {   let! x =
                 JD.field "abbax" JD.string
                     |> Fetch.json
                     |> Fetch.get "http://echo.jsontest.com/abba/babba"
@@ -91,7 +89,6 @@ it "fetch: json echo with decoder: error" <| fun () ->
 
             return result
         }
-        |> Async.StartAsPromise
 
 
 // it "fetch: cookie" <| fun () ->

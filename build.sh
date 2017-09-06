@@ -1,19 +1,20 @@
 #!/bin/bash
-if test "$OS" = "Windows_NT"; then
-  MONO=""
-else
-  # Mono fix for https://github.com/fsharp/FAKE/issues/805
-  export MONO_MANAGED_WATCHER=false
-  MONO="mono"
-fi
+if test "$OS" = "Windows_NT"
+then
+  # use .Net
+  .paket/paket.exe restore
+  exit_code=$?
+  if [ $exit_code -ne 0 ]; then
+  	exit $exit_code
+  fi
 
-if [ -e "paket.lock" ]; then
-$MONO .paket/paket.exe restore
+  packages/build/FAKE/tools/FAKE.exe $@ --fsiargs build.fsx
 else
-$MONO .paket/paket.exe install
+  # use mono
+  mono .paket/paket.exe restore
+  exit_code=$?
+  if [ $exit_code -ne 0 ]; then
+  	exit $exit_code
+  fi
+  mono packages/build/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx
 fi
-exit_code=$?
-if [ $exit_code -ne 0 ]; then
-exit $exit_code
-fi
-$MONO packages/FAKE/tools/FAKE.exe $@ --fsiargs build.fsx
