@@ -1,8 +1,7 @@
+storage: none
 source https://nuget.org/api/v2
 
-nuget FAKE
-nuget Fable.PowerPack
 nuget FSharp.Core
 nuget Fable.Core
-nuget FSharp.NET.Sdk
+nuget Fable.PowerPack
 clitool dotnet-fable

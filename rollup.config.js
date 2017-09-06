@@ -6,11 +6,11 @@ function resolve(filePath) {
 }
 
 export default {
-    entry: resolve('src/Tests/Tests.fsproj'),
-    dest: resolve('build/tests.bundle.js'),
-    plugins: [
-        fable()
-    ],
-    external: ['assert','es6-promise','isomorphic-fetch'],
-    format: 'cjs'
+    input: resolve('src/Tests/Tests.fsproj'),
+    output: {
+        file: resolve('build/tests.bundle.js'),
+        format: 'cjs'
+    },
+    plugins: [fable()],
+    external: ['assert', 'es6-promise', 'isomorphic-fetch'],
 };

@@ -213,4 +213,9 @@ let fromDecodeResult decodeResult =
     primitive "result" <| fun _ -> decodeResult
 
 
-let
+type Builder () =
+    member this.Bind (m, f) = andThen f m
+    member this.Return x = succeed x
+
+
+let decoder = Builder ()

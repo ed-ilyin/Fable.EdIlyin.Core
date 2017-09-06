@@ -488,6 +488,20 @@ function createObj(fields, caseRule = CaseRules.None, casesCache) {
     return o;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+// ICollection.Clear method can be called on IDictionary
+// too so we need to make a runtime check (see #1120)
+
 function choice1Of2(v) {
     return new Choice(0, v);
 }
@@ -1710,9 +1724,15 @@ class Long {
             lo & 0xff,
         ];
     }
+    toJSON() {
+        return (!this.unsigned && !this.lessThan(0) ? "+" : "") + this.toString();
+    }
+    static ofJSON(str) {
+        return fromString(str, !/^[+-]/.test(str));
+    }
     [_Symbol.reflection]() {
         return {
-            type: "System.Int64",
+            type: this.unsigned ? "System.UInt64" : "System.Int64",
             interfaces: ["FSharpRecord", "System.IComparable"],
             properties: {
                 low: "number",
@@ -1982,6 +2002,9 @@ function create$1(year, month, day, h = 0, m = 0, s = 0, ms = 0, kind = 2 /* Loc
     else {
         date = new Date(Date.UTC(year, month - 1, day, h, m, s, ms));
     }
+    if (year <= 99) {
+        date.setFullYear(year);
+    }
     if (isNaN(date.getTime())) {
         throw new Error("The parameters describe an unrepresentable Date.");
     }
@@ -2013,6 +2036,7 @@ function ticks(d) {
         .sub(d.kind === 2 /* Local */ ? d.getTimezoneOffset() * 60 * 1000 : 0)
         .mul(10000);
 }
+
 
 
 
@@ -2118,6 +2142,8 @@ function join(delimiter, xs) {
     return xs2.map((x) => toString(x)).join(delimiter);
 }
 
+
+
 function padLeft(str, len, ch, isRight) {
     ch = ch || " ";
     str = String(str);
@@ -2218,6 +2244,10 @@ const AsyncResultLog = function (__exports) {
 
     Bind(m, f) {
       return andThen(f, m);
+    }
+
+    Bind(_arg1, f) {
+      return andThen(f, _arg1[1]);
     }
 
     Return(x) {
@@ -2622,6 +2652,36 @@ function map$5(func, decoder) {
   }.formatFn(x => x)(getLabel(decoder)));
 }
 
+
+
+
+
+
+
+
+
+class Builder {
+  [_Symbol.reflection]() {
+    return {
+      type: "Fable.EdIlyin.Core.Decode.Builder",
+      properties: {}
+    };
+  }
+
+  constructor() {}
+
+  Bind(m, f) {
+    return andThen(f, m);
+  }
+
+  Return(x) {
+    return succeed(x);
+  }
+
+}
+setType("Fable.EdIlyin.Core.Decode.Builder", Builder);
+const decoder = new Builder();
+
 // TODO: This needs improvement, check namespace for non-custom types?
 
 // tslint:disable:max-line-length
@@ -2630,6 +2690,10 @@ function map$5(func, decoder) {
 // implemented here to prevent cyclic dependencies
 
 // tslint:disable:ban-types
+
+
+
+// TODO: Dates and types with `toJSON` are not adding the $type field
 
 const Fetch_types = function (__exports) {
   const HttpRequestHeaders = __exports.HttpRequestHeaders = class HttpRequestHeaders {
@@ -2796,24 +2860,24 @@ const ResultAutoOpen = function (__exports) {
   return __exports;
 }({});
 
-function decodeValue(decoder, jsonValue) {
-  return decode(decoder, jsonValue);
+function decodeValue(decoder$$1, jsonValue) {
+  return decode(decoder$$1, jsonValue);
 }
 
 const value = primitive("a POJO", function (arg0) {
   return new DecodeResult(0, arg0);
 });
-function field(name, decoder) {
+function field(name, decoder$$1) {
   const label = {
     formatFn: fsFormat("%s field '%s'"),
     input: "%s field '%s'"
-  }.formatFn(x => x)(getLabel(decoder), name);
+  }.formatFn(x => x)(getLabel(decoder$$1), name);
   return primitive(label, function (o) {
     const matchValue = Object.prototype.hasOwnProperty.call(o, name);
 
     if (matchValue) {
       return function (jsonValue) {
-        return run(decoder, jsonValue);
+        return run(decoder$$1, jsonValue);
       }(o[name]);
     } else {
       return new DecodeResult(1, [label, {
@@ -2910,21 +2974,21 @@ const string$1 = primitive("a String", function (o) {
 
 es6Promise.polyfill();
 
-function _fetch(url, properties, decoder) {
+function _fetch(url, properties, decoder$$1) {
   return AsyncResultLog.catch(function (builder_) {
-    return builder_.Bind(AsyncResultLog.mapError(function (e) {
+    return builder_.Bind_0(AsyncResultLog.mapError(function (e) {
       return e.message;
     }, AsyncResultLog.fromPromiseResult("try fetch", _Promise.result(fetch(url, createObj(properties, 1))))), function (_arg1) {
-      return builder_.Bind(AsyncResultLog.fromResultAsyncResult("decode", decode(decoder, _arg1)), function (_arg2) {
+      return builder_.Bind_0(AsyncResultLog.fromResultAsyncResult("decode", decode(decoder$$1, _arg1)), function (_arg2) {
         return builder_.Return(_arg2);
       });
     });
   }(AsyncResultLogAutoOpen.asyncResultLog));
 }
 
-function get(url, headers, decoder) {
+function get(url, headers, decoder$$1) {
   const properties = ofArray$1([new Fetch_types.RequestProperties(0, "GET"), new Fetch_types.RequestProperties(1, createObj(headers, 0))]);
-  return _fetch(url, properties, decoder);
+  return _fetch(url, properties, decoder$$1);
 }
 
 
@@ -2940,12 +3004,12 @@ const text = primitive("a Text", function (response) {
     });
   }(singleton));
 });
-function json(decoder) {
+function json(decoder$$1) {
   return primitive("an JSON", function (response) {
     return new DecodeResult(0, function (builder_) {
       return builder_.Delay(function () {
         return builder_.Bind(awaitPromise(response.json()), function (_arg1) {
-          const result = decodeValue(decoder, _arg1);
+          const result = decodeValue(decoder$$1, _arg1);
           return builder_.Return(result);
         });
       });
@@ -3013,6 +3077,10 @@ it("fetch: json echo with decoder: error", function () {
   }(singleton));
 });
 
+var FetchTests_fs = Object.freeze({
+	equal: equal
+});
+
 it("result: computation expression: return", function () {
   const assert_ = assert;
   assert_.deepStrictEqual(function (builder_) {
@@ -3037,6 +3105,10 @@ it("result: computation expression: zero", function () {
     }).formatFn(x => x)(42);
     return builder__2.Zero();
   }(ResultAutoOpen.result), new Result(0, null));
+});
+
+var ResultTests_fs = Object.freeze({
+
 });
 
 class queue {
@@ -3483,3 +3555,13 @@ it("throttle: couple of different functions", function () {
     });
   }(singleton));
 });
+
+var ThrottleTests_fs = Object.freeze({
+	equal: equal$1,
+	multipleFunTest: multipleFunTest,
+	DifferentResult: DifferentResult
+});
+
+FetchTests_fs;
+ResultTests_fs;
+ThrottleTests_fs;
