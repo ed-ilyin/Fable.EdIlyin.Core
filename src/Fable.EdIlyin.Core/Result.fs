@@ -48,6 +48,10 @@ module Result =
         member this.Zero () = Ok ()
 
 
+    let unpack errorFunc okFunc =
+        function Error e -> errorFunc e | Ok a -> okFunc a
+
+
 [<AutoOpen>]
 module ResultAutoOpen =
     let result = Result.Builder ()

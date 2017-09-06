@@ -18,23 +18,20 @@ do JsInterop.importSideEffects "isomorphic-fetch"
 
 
 let fetch url properties decoder =
-    asyncResultLog {
-        let! response =
-            // Fetch.fetch url properties
-            GlobalFetch.fetch
-                (RequestInfo.Url url, requestProps properties)
-                |> Promise.result
-                |> AsyncResultLog.fromPromiseResult "try fetch"
-                |> AsyncResultLog.mapError
-                    (fun (e: System.Exception) -> e.Message)
+    promiseResult
+        {   let! response =
+                GlobalFetch.fetch
+                    (RequestInfo.Url url, requestProps properties)
+                    |> Promise.result
+                    |> PromiseResult.mapError
+                        (fun (e: System.Exception) -> e.Message)
 
-        let! response =
-            Decode.decode decoder response
-                |> AsyncResultLog.fromResultAsyncResult "decode"
+            let! response =
+                Decode.decode decoder response
+                    |> Result.unpack (Error >> promise.Return) id
 
-        return response
-    }
-        |> AsyncResultLog.catch
+            return response
+        }
 
 
 let get url headers decoder =
@@ -71,21 +68,12 @@ let postJson url headers pojo decoder =
     fetch url properties decoder
 
 
-let text: Decode.Decoder<Response,Async<Result<string,string>>> =
+let text =
     Decode.primitive "a Text"
         (fun (response: Response) ->
-            async
-                {   let! textChoice =
-                        response.text ()
-                            |> Async.AwaitPromise
-                            |> Async.Catch
-
-                    let result =
-                        Result.ofChoice textChoice
-                            |> Result.mapError (fun e -> e.Message)
-
-                    return result
-                }
+            response.text ()
+                |> Promise.result
+                |> PromiseResult.mapError (fun e -> e.Message)
                 |> Decode.Decoded
         )
 
@@ -93,8 +81,8 @@ let text: Decode.Decoder<Response,Async<Result<string,string>>> =
 let json decoder =
     Decode.primitive "an JSON"
         (fun (response: Response) ->
-            async
-                {   let! json = response.json () |> Async.AwaitPromise
+            promise
+                {   let! json = response.json ()
                     let result = Json.Decode.decodeValue decoder json
                     return result
                 }
@@ -102,6 +90,6 @@ let json decoder =
         )
 
 
-let response: Decode.Decoder<Response,Async<Result<Response,string>>> =
+let response =
     Decode.primitive "an HTTP response"
-        (Ok >> async.Return >> Decode.Decoded)
+        (Ok >> promise.Return >> Decode.Decoded)

@@ -17,6 +17,7 @@
     <Compile Include="Queue.fs" />
     <Compile Include="Throttle.fs" />
     <Compile Include="AsyncResultLog.fs" />
+    <Compile Include="PromiseResult.fs" />
     <Compile Include="Http\Fetch.fs" />
   </ItemGroup>
   <ItemGroup>
