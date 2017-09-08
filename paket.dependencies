@@ -3,7 +3,7 @@ source https://nuget.org/api/v2
 
 nuget FSharp.Core
 nuget Fable.Core
-nuget Fable.PowerPack
+nuget Fable.PowerPack prerelease
 clitool dotnet-fable
 
 group Build

@@ -5,7 +5,10 @@
     "postupdate": "dotnet restore",
     "pretest": "cd src/Tests; dotnet fable npm-run rollup",
     "rollup": "rollup -c",
-    "test": "mocha build"
+    "test": "mocha build",
+    "clean": "find src -iname 'bin' -o -iname 'obj' | xargs rm -rf; rm -rf bin",
+    "prepack": "npm run clean",
+    "pack": "dotnet pack -c Release -o ../../bin"
   },
   "devDependencies": {
     "babel-core": "^6.26.0",
