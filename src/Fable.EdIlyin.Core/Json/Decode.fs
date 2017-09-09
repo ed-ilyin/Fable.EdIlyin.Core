@@ -228,12 +228,16 @@ let index index decoder =
     list value
         |> Decode.andThen
             (fun list ->
-                List.tryItem index list
-                    |> Result.ofOption
-                        "there is no such element in the Array"
-                    |> Decode.fromResult
-                    |> Decode.andThen
-                        (run decoder >> Decode.fromDecodeResult)
+                match List.tryItem index list with
+                    | None ->
+                        Decode.expectingButGot
+                            <| sprintf "%s element #%i"
+                                (getLabel decoder)
+                                index
+                            <| list
+
+                    | Some value -> Decode.run decoder value
+                    |> Decode.fromDecodeResult
             )
 
 
