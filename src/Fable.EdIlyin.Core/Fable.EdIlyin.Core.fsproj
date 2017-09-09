@@ -2,12 +2,13 @@
   <PropertyGroup>
     <Author>Ed Ilyin</Author>
     <TargetFramework>netstandard1.6</TargetFramework>
-    <Version>0.0.23</Version>
+    <Version>0.0.24</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Basics.fs" />
     <Compile Include="Debug.fs" />
+    <Compile Include="Option.fs" />
     <Compile Include="Result.fs" />
     <Compile Include="Decode.fs" />
     <Compile Include="Json\Decode.fs" />
@@ -16,7 +17,6 @@
     <Compile Include="AsyncResult.fs" />
     <Compile Include="Queue.fs" />
     <Compile Include="Throttle.fs" />
-    <Compile Include="AsyncResultLog.fs" />
     <Compile Include="PromiseResult.fs" />
     <Compile Include="Http\Fetch.fs" />
   </ItemGroup>

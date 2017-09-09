@@ -17,7 +17,7 @@ let decodeString decoder jsonString =
 
 
 let value : Decode.Decoder<obj,obj> =
-    Decode.primitive "a POJO" Decode.Decoded
+    Decode.primitive "a POJO" Ok
 
 
 [<Emit("Object.prototype.hasOwnProperty.call($1,$0)")>]
@@ -37,8 +37,7 @@ let field name decoder =
                 | true ->
                     jsGetProp (name, o) |> Decode.run decoder
 
-                | false ->
-                    Decode.ExpectingButGot (label, sprintf "%A" o)
+                | false -> Decode.expectingButGot label o
         )
 
 
@@ -54,26 +53,78 @@ let bool =
 
     Decode.primitive label
         (fun (o: obj) ->
-            if jsTypeof o = "boolean" then o :?> bool |> Decode.Decoded
-            else label => sprintf "%A" o |> Decode.ExpectingButGot
+            if jsTypeof o = "boolean" then o :?> bool |> Ok
+            else Decode.expectingButGot label o
         )
+
+
+[<Emit("(value => { if (typeof value !== 'number') { return false; }; if (0 <= value && value <= 65535 && (value | 0) === value) { return true; } if (isFinite(value) && !(value % 1)) { return true; }; return false; })($0)")>]
+let isUInt16 (value: obj) : bool = jsNative
+
+
+[<Emit("(value => { if (typeof value !== 'number') { return false; }; if (0 <= value && value <= 4294967295 && (value | 0) === value) { return true; } if (isFinite(value) && !(value % 1)) { return true; }; return false; })($0)")>]
+let isUInt32 (value: obj) : bool = jsNative
+
+
+[<Emit("(value => { if (typeof value !== 'number') { return false; }; if (0 <= value && value <= 18446744073709551615 && (value | 0) === value) { return true; } if (isFinite(value) && !(value % 1)) { return true; }; return false; })($0)")>]
+let isUInt64 (value: obj) : bool = jsNative
+
+
+[<Emit("(value => { if (typeof value !== 'number') { return false; }; if (-32768 <= value && value <= 32767 && (value | 0) === value) { return true; } if (isFinite(value) && !(value % 1)) { return true; }; return false; })($0)")>]
+let isInt16 (value: obj) : bool = jsNative
 
 
 [<Emit("(value => { if (typeof value !== 'number') { return false; }; if (-2147483648 <= value && value <= 2147483647 && (value | 0) === value) { return true; } if (isFinite(value) && !(value % 1)) { return true; }; return false; })($0)")>]
 let isInt (value: obj) : bool = jsNative
 
 
+[<Emit("(value => { if (typeof value !== 'number') { return false }; if (-9223372036854775808 <= value && value <= 9223372032559808512 && (value | 0) === value) { return true; } if (isFinite(value) && !(value % 1)) { return true; }; return false; })($0)")>]
+let isInt64 (value: obj) : bool = jsNative
+
+
+let uint16 =
+    let label = "an UInt16"
+    Decode.primitive label
+        (fun (o: obj) ->
+            if isUInt16 o then o :?> uint16 |> Ok
+            else Decode.expectingButGot label o
+        )
+
+
+let uint32 =
+    let label = "an UInt32"
+    Decode.primitive label
+        (fun (o: obj) ->
+            if isUInt32 o then o :?> uint32 |> Ok
+            else Decode.expectingButGot label o
+        )
+
+
+let uint64 =
+    let label = "an UInt64"
+    Decode.primitive label
+        (fun (o: obj) ->
+            if isUInt64 o then o :?> uint64 |> Ok
+            else Decode.expectingButGot label o
+        )
+
+
+let int16 =
+    let label = "an Int16"
+    Decode.primitive label
+        (fun (o: obj) ->
+            if isInt16 o then o :?> int16 |> Ok
+            else Decode.expectingButGot label o
+        )
+
+
 let int =
     let label = "an Int"
     Decode.primitive label
         (fun (o: obj) ->
-            if isInt o then o :?> int |> Decode.Decoded
-            else label => sprintf "%A" o |> Decode.ExpectingButGot
+            if isInt o then o :?> int |> Ok
+            else Decode.expectingButGot label o
         )
-
-
-[<Emit("(value => { if (typeof value !== 'number') { return false }; if (-9223372036854775808 <= value && value <= 9223372032559808512 && (value | 0) === value) { return true; } if (isFinite(value) && !(value % 1)) { return true; }; return false; })($0)")>]
-let isInt64 (value: obj) : bool = jsNative
 
 
 let int64 =
@@ -81,8 +132,8 @@ let int64 =
 
     Decode.primitive label
         (fun (o: obj) ->
-            if isInt64 o then o :?> int64 |> Decode.Decoded
-            else label => sprintf "%A" o |> Decode.ExpectingButGot
+            if isInt64 o then o :?> int64 |> Ok
+            else Decode.expectingButGot label o
         )
 
 
@@ -91,8 +142,8 @@ let float =
 
     Decode.primitive label
         (fun (o: obj) ->
-            if jsTypeof o = "number" then o :?> float |> Decode.Decoded
-            else label => sprintf "%A" o |> Decode.ExpectingButGot
+            if jsTypeof o = "number" then o :?> float |> Ok
+            else Decode.expectingButGot label o
         )
 
 
@@ -110,7 +161,7 @@ let dict decoder =
                     |> List.map
                         (fun (name, subObj) ->
                             decode decoder subObj
-                                |> Result.map ((=>) name)
+                                |> Result.map (tuple name)
                         )
                     |> Result.combineList
                     |> Result.map Map.ofList
@@ -132,8 +183,8 @@ let string =
 
     Decode.primitive label
         (fun (o: obj) ->
-            if jsTypeof o = "string" then o :?> string |> Decode.Decoded
-            else label => sprintf "%A" o |> Decode.ExpectingButGot
+            if jsTypeof o = "string" then o :?> string |> Ok
+            else o |> Decode.expectingButGot label
         )
 
 
@@ -146,7 +197,7 @@ let keyValuePairs decoder =
                     |> List.map
                         (fun (key, valueObject) ->
                             decode decoder valueObject
-                                |> Result.map ((=>) key)
+                                |> Result.map (tuple key)
                         )
                     |> Result.combineList
                     |> Decode.fromResult
@@ -169,7 +220,7 @@ let list decoder =
                         |> Result.combineList
                         |> Decode.resultFromResult
 
-                else label => sprintf "%A" o |> Decode.ExpectingButGot
+                else Decode.expectingButGot label o
             )
 
 
@@ -184,3 +235,20 @@ let index index decoder =
                     |> Decode.andThen
                         (run decoder >> Decode.fromDecodeResult)
             )
+
+
+[<Emit("$0 === null")>]
+let isNull (value: obj) : bool = jsNative
+
+
+let Null a =
+    let label = "a Null"
+    Decode.primitive label
+        (fun (o: obj) ->
+            if isNull o then a |> Ok
+            else Decode.expectingButGot label o
+        )
+
+
+let nullable decoder =
+    Decode.oneOf [ Null None; Decode.map Some decoder ]

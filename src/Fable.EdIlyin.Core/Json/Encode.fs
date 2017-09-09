@@ -3,7 +3,15 @@ module Fable.EdIlyin.Core.Json.Encode
 open Fable.Core.JsInterop
 
 
-let object fields = createObj fields
+let object fields =
+    fields
+        |> Seq.fold
+            (fun o (name: string, value: obj) ->
+                do o?(name) <- value
+                o
+            )
+            createEmpty<obj>
+
 
 
 let string (x: string) = box x
@@ -34,3 +42,6 @@ let bool (x: bool) = box x
 
 
 let encode (o: obj) = toJson o
+
+
+let Null: obj = null

@@ -74,7 +74,7 @@ let text =
             response.text ()
                 |> Promise.result
                 |> PromiseResult.mapError (fun e -> e.Message)
-                |> Decode.Decoded
+                |> Ok
         )
 
 
@@ -86,10 +86,9 @@ let json decoder =
                     let result = Json.Decode.decodeValue decoder json
                     return result
                 }
-                |> Decode.Decoded
+                |> Ok
         )
 
 
 let response: Decode.Decoder<Response,JS.Promise<Result<Response,string>>> =
-    Decode.primitive "an HTTP response"
-        (Ok >> promise.Return >> Decode.Decoded)
+    Decode.primitive "an HTTP response" (Ok >> promise.Return >> Ok)
