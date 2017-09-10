@@ -13,10 +13,10 @@
   "devDependencies": {
     "babel-core": "^6.26.0",
     "es6-promise": "^4.1.1",
-    "fable-loader": "^1.0.7",
+    "fable-loader": "^1.1.2",
     "isomorphic-fetch": "^2.2.1",
-    "mocha": "^3.5.0",
-    "rollup": "^0.49.2",
+    "mocha": "^3.5.1",
+    "rollup": "^0.49.3",
     "rollup-plugin-fable": "^1.0.7"
   }
 }

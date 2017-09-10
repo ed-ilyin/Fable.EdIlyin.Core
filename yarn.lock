@@ -301,15 +301,19 @@ extglob@^0.3.1:
   dependencies:
     is-extglob "^1.0.0"
 
-fable-loader@^1.0.7:
-  version "1.0.7"
-  resolved "https://registry.yarnpkg.com/fable-loader/-/fable-loader-1.0.7.tgz#6a3632e7072e1edfdc192bd04a03ec80c7f0ce33"
+fable-loader@^1.1.2:
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/fable-loader/-/fable-loader-1.1.2.tgz#b5c435230858158586aedc55449efcae67aed767"
   dependencies:
-    fable-utils "^1.0.1"
+    fable-utils "^1.0.4"
 
 fable-utils@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/fable-utils/-/fable-utils-1.0.1.tgz#76046b1da137bd3474918532451c1d47651620af"
+
+fable-utils@^1.0.4:
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/fable-utils/-/fable-utils-1.0.4.tgz#3361d044e199d73dc10d5eec7cf6ac7b318c9d13"
 
 filename-regex@^2.0.0:
   version "2.0.1"
@@ -384,6 +388,10 @@ has-ansi@^2.0.0:
 has-flag@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/has-flag/-/has-flag-1.0.0.tgz#9d9e793165ce017a00f00418c43f942a7b1d11fa"
+
+he@1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/he/-/he-1.1.1.tgz#93410fd21b009735151f8868c2f271f3427e23fd"
 
 home-or-tmp@^2.0.0:
   version "2.0.0"
@@ -607,9 +615,9 @@ mkdirp@0.5.1, mkdirp@^0.5.1:
   dependencies:
     minimist "0.0.8"
 
-mocha@^3.5.0:
-  version "3.5.0"
-  resolved "https://registry.yarnpkg.com/mocha/-/mocha-3.5.0.tgz#1328567d2717f997030f8006234bce9b8cd72465"
+mocha@^3.5.1:
+  version "3.5.1"
+  resolved "https://registry.yarnpkg.com/mocha/-/mocha-3.5.1.tgz#9b6d13ac1ccf957edd16f2e439055734b1b60391"
   dependencies:
     browser-stdout "1.3.0"
     commander "2.9.0"
@@ -618,6 +626,7 @@ mocha@^3.5.0:
     escape-string-regexp "1.0.5"
     glob "7.1.1"
     growl "1.9.2"
+    he "1.1.1"
     json3 "3.3.2"
     lodash.create "3.1.1"
     mkdirp "0.5.1"
@@ -740,9 +749,9 @@ rollup-pluginutils@2.0.1:
     estree-walker "^0.3.0"
     micromatch "^2.3.11"
 
-rollup@^0.49.2:
-  version "0.49.2"
-  resolved "https://registry.yarnpkg.com/rollup/-/rollup-0.49.2.tgz#a18f07595cde3b11875c9fece45b25ad3b220d1a"
+rollup@^0.49.3:
+  version "0.49.3"
+  resolved "https://registry.yarnpkg.com/rollup/-/rollup-0.49.3.tgz#4cce32643dd8cf2154c69ff0e43470067db0adbf"
 
 slash@^1.0.0:
   version "1.0.0"

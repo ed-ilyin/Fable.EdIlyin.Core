@@ -806,7 +806,25 @@ function pairwise(xs) {
 
 
 
-
+function reduce(f, xs) {
+    if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
+        return xs.reduce(f);
+    }
+    const iter = xs[Symbol.iterator]();
+    let cur = iter.next();
+    if (cur.done) {
+        throw new Error("Seq was empty");
+    }
+    let acc = cur.value;
+    while (true) {
+        cur = iter.next();
+        if (cur.done) {
+            break;
+        }
+        acc = f(acc, cur.value);
+    }
+    return acc;
+}
 
 
 
@@ -2202,6 +2220,10 @@ function padLeft(str, len, ch, isRight) {
     return str;
 }
 
+function flip(func, x, y) {
+  return func(y, x);
+}
+
 class _Error {
   constructor(tag, data) {
     this.tag = tag;
@@ -2277,7 +2299,11 @@ function primitive(expecting, func) {
 function fromFunction(func) {
   return primitive("", func);
 }
-
+function fail(error) {
+  return fromFunction(function (_arg1) {
+    return new Result(1, new _Error(1, error));
+  });
+}
 function succeed(value) {
   return fromFunction(function (_arg1) {
     return new Result(0, value);
@@ -2335,6 +2361,51 @@ function map$5(func, decoder) {
   return function (functionDecoder) {
     return andMap(decoder, functionDecoder);
   }(succeed(func));
+}
+
+
+
+
+
+
+
+
+function fromResult(result) {
+  return Result$1.unpack(function (error) {
+    return fail(error);
+  }, function (value) {
+    return succeed(value);
+  }, result);
+}
+
+function result(decoder) {
+  return fromFunction($var2 => function (arg0) {
+    return new Result(0, arg0);
+  }(function (source) {
+    return decode(decoder, source);
+  }($var2)));
+}
+
+
+
+
+
+
+function orElse(decoder2, decoder1) {
+  return andThen(function (_arg1) {
+    return _arg1.tag === 0 ? fromResult(new Result(0, _arg1.data)) : decoder2;
+  }, result(decoder1));
+}
+function oneOf(decoderList) {
+  return reduce((() => {
+    const func = function (decoder2, decoder1) {
+      return orElse(decoder2, decoder1);
+    };
+
+    return function (x, y) {
+      return flip(func, x, y);
+    };
+  })(), decoderList);
 }
 
 // TODO: This needs improvement, check namespace for non-custom types?
@@ -2407,7 +2478,10 @@ function string(x) {
 function decodeValue(decoder, jsonValue) {
   return decode(decoder, jsonValue);
 }
-
+function decodeString(decoder, jsonString) {
+  const pojo = JSON.parse(jsonString);
+  return decodeValue(decoder, pojo);
+}
 const value = primitive("a POJO", function (arg0) {
   return new Result(0, arg0);
 });
@@ -2570,6 +2644,26 @@ const string$1 = primitive("a String", function (o) {
   }(o);
 });
 
+
+function index(i, decoder) {
+  return primitive("an array", function (array) {
+    return i >= array.length ? expectingButGot({
+      formatFn: fsFormat("a longer array. Need index %i"),
+      input: "a longer array. Need index %i"
+    }.formatFn(x => x)(i), array) : run(decoder, array[i]);
+  });
+}
+function Null$1(a) {
+  return primitive("a Null", function (o) {
+    return o === null ? new Result(0, a) : expectingButGot("a Null", o);
+  });
+}
+function nullable(decoder) {
+  return oneOf(ofArray([Null$1(null), map$5(function (arg0) {
+    return arg0;
+  }, decoder)]));
+}
+
 es6Promise.polyfill();
 
 function _fetch(url, properties, decoder) {
@@ -2666,10 +2760,6 @@ it("fetch: json echo with decoder: error", function () {
   }(PromiseImpl.promise);
 });
 
-var FetchTests_fs = Object.freeze({
-	equal: equal
-});
-
 it("result: computation expression: return", function () {
   const assert_ = assert;
   assert_.deepStrictEqual(function (builder_) {
@@ -2694,10 +2784,6 @@ it("result: computation expression: zero", function () {
     }).formatFn(x => x)(42);
     return builder__2.Zero();
   }(ResultAutoOpen.result), new Result(0, null));
-});
-
-var ResultTests_fs = Object.freeze({
-
 });
 
 class queue {
@@ -3332,12 +3418,31 @@ it("throttle: couple of different functions", function () {
   }(singleton$3));
 });
 
-var ThrottleTests_fs = Object.freeze({
-	equal: equal$1,
-	multipleFunTest: multipleFunTest,
-	DifferentResult: DifferentResult
+function equal$2(expected, actual) {
+  const assert_ = assert;
+  assert_.deepStrictEqual(actual, expected);
+}
+it("json decode: null", function () {
+  equal$2(new Result(0, true), decodeString(Null$1(true), "null"));
 });
-
-FetchTests_fs;
-ResultTests_fs;
-ThrottleTests_fs;
+it("json decode: nullable int: 42", function () {
+  equal$2(new Result(0, 42), decodeString(nullable(_int$1), "42"));
+});
+it("json decode: nullable int: null", function () {
+  equal$2(new Result(0, null), decodeString(nullable(_int$1), "null"));
+});
+it("json decode: index: 42", function () {
+  equal$2(new Result(0, 42), decodeString(index(1, _int$1), "[12,42,43]"));
+});
+it("json decode: index: nullable int: 42", function () {
+  equal$2(new Result(0, 42), decodeString(index(1, nullable(_int$1)), "[12,42,43]"));
+});
+it("json decode: index: nullable int: null", function () {
+  equal$2(new Result(0, null), decodeString(index(1, nullable(_int$1)), "[12,null,43]"));
+});
+it("json decode: index last element", function () {
+  equal$2(new Result(0, 43), decodeString(index(2, nullable(_int$1)), "[12,null,43]"));
+});
+it("json decode: index out of length", function () {
+  equal$2(new Result(1, "Expecting a longer array. Need index 3, but instead got: \"[12,null,43]\""), decodeString(index(3, nullable(_int$1)), "[12,null,43]"));
+});

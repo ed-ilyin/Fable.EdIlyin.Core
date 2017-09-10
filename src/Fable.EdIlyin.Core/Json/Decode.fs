@@ -5,6 +5,7 @@ open Fable.Core
 open Fable.EdIlyin.Core
 open Fable.Import
 open Fable.EdIlyin.Core.Decode
+open Fable.Core.JsInterop
 
 
 let decodeValue decoder (jsonValue: obj) =
@@ -224,21 +225,19 @@ let list decoder =
             )
 
 
-let index index decoder =
-    list value
-        |> Decode.andThen
-            (fun list ->
-                match List.tryItem index list with
-                    | None ->
-                        Decode.expectingButGot
-                            <| sprintf "%s element #%i"
-                                (getLabel decoder)
-                                index
-                            <| list
+let index i decoder =
+    Decode.primitive "an array"
+        <| fun array ->
+            if i >= !!array?length
+                then
+                    Decode.expectingButGot
+                        (sprintf
+                            "a longer array. Need index %i"
+                            i
+                        )
+                        array
 
-                    | Some value -> Decode.run decoder value
-                    |> Decode.fromDecodeResult
-            )
+                else Decode.run decoder !!array?(i)
 
 
 [<Emit("$0 === null")>]

@@ -6,6 +6,7 @@
     <Compile Include="FetchTests.fs" />
     <Compile Include="ResultTests.fs" />
     <Compile Include="ThrottleTests.fs" />
+    <Compile Include="JsonDecodeTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
