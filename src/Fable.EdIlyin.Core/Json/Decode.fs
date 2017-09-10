@@ -191,6 +191,7 @@ let string =
 
 let keyValuePairs decoder =
     let label = getLabel decoder |> sprintf "string key %s value pairs"
+
     value
         |> Decode.andThen
             (fun o ->
@@ -228,16 +229,20 @@ let list decoder =
 let index i decoder =
     Decode.primitive "an array"
         <| fun array ->
-            if i >= !!array?length
+            if jsInstanceOfArray array
                 then
-                    Decode.expectingButGot
-                        (sprintf
-                            "a longer array. Need index %i"
-                            i
-                        )
-                        array
+                    if i >= !!array?length
+                        then
+                            Decode.expectingButGot
+                                (sprintf
+                                    "a longer array. Need index %i"
+                                    i
+                                )
+                                array
 
-                else Decode.run decoder !!array?(i)
+                        else Decode.run decoder !!array?(i)
+
+                else Decode.expectingButGot "an array" array
 
 
 [<Emit("$0 === null")>]

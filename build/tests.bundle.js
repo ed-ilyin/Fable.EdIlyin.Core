@@ -2647,10 +2647,10 @@ const string$1 = primitive("a String", function (o) {
 
 function index(i, decoder) {
   return primitive("an array", function (array) {
-    return i >= array.length ? expectingButGot({
+    return array instanceof Array ? i >= array.length ? expectingButGot({
       formatFn: fsFormat("a longer array. Need index %i"),
       input: "a longer array. Need index %i"
-    }.formatFn(x => x)(i), array) : run(decoder, array[i]);
+    }.formatFn(x => x)(i), array) : run(decoder, array[i]) : expectingButGot("an array", array);
   });
 }
 function Null$1(a) {
