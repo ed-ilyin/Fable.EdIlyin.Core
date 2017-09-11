@@ -91,17 +91,23 @@ it "fetch: json echo with decoder: error" <| fun () ->
         }
 
 
-// it "fetch: cookie" <| fun () ->
-//     async
+// it "fetch: json echo with dict obj decoder" <| fun () ->
+//     promise
 //         {   let! x =
-//                 Fetch.fetch
-//                     "http://www.whatarecookies.com/cookietest.asp"
-//                     []
-//                     Fetch.text
+//                 JD.field "lowerAsk" JD.float
+//                     |> JD.dict
+//                     |> Fetch.json
+//                     |> Fetch.get
+//                         "https://poloniex.com/public?command=returnTicker"
+//                         []
 
 //             let result =
-//                 equal (Ok "abbabbababa") x
+//                 equal
+//                     (@"Expecting a String field 'abbax', but instead got: ""{\""abba\"":\""babba\""}"""
+//                         |> Error
+//                     )
+//                     x
 
-//             return x
+//             return result
 //         }
-//         |> Async.StartAsPromise
+

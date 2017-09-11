@@ -2,10 +2,7 @@ module JsonDecodeTests
 
 open Fable.Core
 open Fable.Core.JsInterop
-// open Fable.EdIlyin.Core
-// open Fable.EdIlyin.Core.Http
-// open Fable.Import
-// open Fable.PowerPack
+open Fable.EdIlyin.Core
 
 
 module JD = Fable.EdIlyin.Core.Json.Decode
@@ -59,4 +56,32 @@ it "json decode: index out of length" <| fun () ->
         |> equal
             (Error
                 "Expecting a longer array. Need index 3, but instead got: \"[12,null,43]\""
+            )
+
+
+let floatFromString =
+    JD.string
+        |> Decode.andThen
+            (fun s ->
+                try float s |> Ok
+                with e -> Decode.expectingButGot "a Float in String" s
+                |> Decode.fromDecodeResult
+            )
+
+
+it "json decode: wrong field name" <| fun () ->
+    JD.decodeString (JD.field "lowerAsk" floatFromString)
+        "{\"last\":\"0.00007602\",\"lowestAsk\":\"0.00007602\"}"
+        |> equal
+            (Error
+                "Expecting a String field 'lowerAsk', but instead got: \"{\\\"last\\\":\\\"0.00007602\\\",\\\"lowestAsk\\\":\\\"0.00007602\\\"}\""
+            )
+
+
+it "json decode: dict: wrong field name" <| fun () ->
+    JD.decodeString (JD.field "lowerAsk" floatFromString |> JD.dict)
+        """{"one":{"a":1,"b":2},"two":{"a":2,"b":3}}"""
+        |> equal
+            (Error
+                "Expecting a String field 'lowerAsk', but instead got: \"{\\\"a\\\":1,\\\"b\\\":2}\""
             )

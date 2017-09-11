@@ -18,20 +18,21 @@ do JsInterop.importSideEffects "isomorphic-fetch"
 
 
 let fetch url properties decoder =
-    promiseResult
+    promise
         {   let! response =
                 GlobalFetch.fetch
                     (RequestInfo.Url url, requestProps properties)
-                    |> Promise.result
-                    |> PromiseResult.mapError
-                        (fun (e: System.Exception) -> e.Message)
 
-            let! response =
+            let! result =
                 Decode.decode decoder response
                     |> Result.unpack (Error >> promise.Return) id
 
-            return response
+            return result
         }
+        |> Promise.result
+        |> Promise.map
+            (Result.mapError (fun e -> e.Message) >> Result.andThen id
+            )
 
 
 let get url headers decoder =

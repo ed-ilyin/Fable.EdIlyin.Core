@@ -180,7 +180,9 @@ function equals(x, y) {
         return false;
     }
 }
-
+function comparePrimitives(x, y) {
+    return x === y ? 0 : (x < y ? -1 : 1);
+}
 function compare(x, y) {
     // Optimization if they are referencially equal
     if (x === y) {
@@ -361,7 +363,7 @@ function createObj(fields, caseRule = CaseRules.None, casesCache) {
 // ICollection.Clear method can be called on IDictionary
 // too so we need to make a runtime check (see #1120)
 
-class Result {
+class Result$1 {
     constructor(tag, data) {
         this.tag = tag | 0;
         this.data = data;
@@ -381,177 +383,14 @@ class Result {
     }
 }
 function map(f, result) {
-    return result.tag === 0 ? new Result(0, f(result.data)) : result;
+    return result.tag === 0 ? new Result$1(0, f(result.data)) : result;
 }
-
+function mapError(f, result) {
+    return result.tag === 1 ? new Result$1(1, f(result.data)) : result;
+}
 function bind(f, result) {
     return result.tag === 0 ? f(result.data) : result;
 }
-
-const _Promise = function (__exports) {
-  const result = __exports.result = function (a) {
-    return a.then($var1 => new Result(0, $var1), $var2 => new Result(1, $var2));
-  };
-
-  const mapResult = __exports.mapResult = function (fn, a) {
-    return a.then(function (result_1) {
-      return map(fn, result_1);
-    });
-  };
-
-  const bindResult = __exports.bindResult = function (fn, a) {
-    return a.then(function (a_1) {
-      return a_1.tag === 1 ? Promise.resolve(new Result(1, a_1.data)) : result(fn(a_1.data));
-    });
-  };
-
-  const PromiseBuilder = __exports.PromiseBuilder = class PromiseBuilder {
-    [FSymbol.reflection]() {
-      return {
-        type: "Fable.PowerPack.Promise.PromiseBuilder",
-        properties: {}
-      };
-    }
-
-    constructor() {}
-
-    For(seq, body) {
-      let p = Promise.resolve(null);
-
-      for (let a of seq) {
-        p = p.then(() => body(a));
-      }
-
-      return p;
-    }
-
-    While(guard, p) {
-      if (guard()) {
-        return p.then(() => this.While(guard, p));
-      } else {
-        return Promise.resolve(null);
-      }
-    }
-
-    TryFinally(p, compensation) {
-      return p.then(x => {
-        compensation();
-        return x;
-      }, er => {
-        compensation();
-        throw er;
-      });
-    }
-
-    Delay(generator) {
-      return {
-        then: (f1, f2) => {
-          try {
-            return generator().then(f1, f2);
-          } catch (er) {
-            if (f2 == null) {
-              return Promise.reject(er);
-            } else {
-              try {
-                return Promise.resolve(f2(er));
-              } catch (er_1) {
-                return Promise.reject(er_1);
-              }
-            }
-          }
-        },
-        catch: f => {
-          try {
-            return generator().catch(f);
-          } catch (er_2) {
-            try {
-              return Promise.resolve(f(er_2));
-            } catch (er_3) {
-              return Promise.reject(er_3);
-            }
-          }
-        }
-      };
-    }
-
-    Using(resource, binder) {
-      return this.TryFinally(binder(resource), () => {
-        resource.Dispose();
-      });
-    }
-
-  };
-  setType("Fable.PowerPack.Promise.PromiseBuilder", PromiseBuilder);
-  return __exports;
-}({});
-
-const PromiseImpl = function (__exports) {
-  const promise = __exports.promise = new _Promise.PromiseBuilder();
-  return __exports;
-}({});
-
-const PromiseResult = function (__exports) {
-  const andThen = __exports.andThen = function (func, promiseResult) {
-    return function (builder_) {
-      return builder_.Delay(function () {
-        return promiseResult.then(function (_arg1) {
-          return (_arg1.tag === 0 ? func(_arg1.data) : function (builder__1) {
-            return builder__1.Delay(function () {
-              return Promise.resolve(new Result(1, _arg1.data));
-            });
-          }(PromiseImpl.promise)).then(function (_arg2) {
-            return Promise.resolve(_arg2);
-          });
-        });
-      });
-    }(PromiseImpl.promise);
-  };
-
-  const result = __exports.result = function (value) {
-    return function (builder_) {
-      return builder_.Delay(function () {
-        return Promise.resolve(new Result(0, value));
-      });
-    }(PromiseImpl.promise);
-  };
-
-  const Builder = __exports.Builder = class Builder {
-    [FSymbol.reflection]() {
-      return {
-        type: "Fable.EdIlyin.Core.PromiseResult.Builder",
-        properties: {}
-      };
-    }
-
-    constructor() {}
-
-    Bind(m, f) {
-      return andThen(f, m);
-    }
-
-    Return(m) {
-      return result(m);
-    }
-
-  };
-  setType("Fable.EdIlyin.Core.PromiseResult.Builder", Builder);
-
-  const mapError$$1 = __exports.mapError = function (func, promiseResult) {
-    return function (builder_) {
-      return builder_.Delay(function () {
-        return promiseResult.then(function (_arg1) {
-          return Promise.resolve(_arg1.tag === 1 ? new Result(1, func(_arg1.data)) : new Result(0, _arg1.data));
-        });
-      });
-    }(PromiseImpl.promise);
-  };
-
-  return __exports;
-}({});
-const PromiseResultAutoOpen = function (__exports) {
-  const promiseResult = __exports.promiseResult = new PromiseResult.Builder();
-  return __exports;
-}({});
 
 // This module is split from List.ts to prevent cyclic dependencies
 function ofArray(args, base) {
@@ -676,7 +515,17 @@ class List$1 {
     }
 }
 
-function map$4(f, source, target) {
+class Comparer {
+    constructor(f) {
+        this.Compare = f || compare;
+    }
+    [FSymbol.reflection]() {
+        return { interfaces: ["System.IComparer"] };
+    }
+}
+
+function map$4(f, source, TargetCons) {
+    const target = new TargetCons(source.length);
     for (let i = 0; i < source.length; i++) {
         target[i] = f(source[i]);
     }
@@ -710,7 +559,10 @@ function append$1(xs, ys) {
 
 
 
-
+function compareWith(f, xs, ys) {
+    const nonZero = tryFind$1((i) => i !== 0, map2((x, y) => f(x, y), xs, ys));
+    return nonZero != null ? nonZero : count(xs) - count(ys);
+}
 function delay(f) {
     return {
         [Symbol.iterator]: () => f()[Symbol.iterator](),
@@ -769,7 +621,11 @@ function initialize$1(n, f) {
 
 
 // A export function 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
-
+function count(xs) {
+    return Array.isArray(xs) || ArrayBuffer.isView(xs)
+        ? xs.length
+        : fold$1((acc, x) => acc + 1, 0, xs);
+}
 function map$3(f, xs) {
     return delay(() => unfold((iter) => {
         const cur = iter.next();
@@ -869,7 +725,17 @@ function skip(n, xs) {
 
 
 
-
+function tryFind$1(f, xs, defaultValue) {
+    for (let i = 0, iter = xs[Symbol.iterator]();; i++) {
+        const cur = iter.next();
+        if (cur.done) {
+            return defaultValue === void 0 ? null : defaultValue;
+        }
+        if (f(cur.value, i)) {
+            return cur.value;
+        }
+    }
+}
 
 
 
@@ -900,6 +766,441 @@ function unfold(f, acc) {
 // These functions belong to Seq.ts but are
 // implemented here to prevent cyclic dependencies
 
+
+class MapTree {
+    constructor(tag, data) {
+        this.tag = tag | 0;
+        this.data = data;
+    }
+}
+function tree_sizeAux(acc, m) {
+    sizeAux: while (true) {
+        if (m.tag === 1) {
+            return acc + 1 | 0;
+        }
+        else if (m.tag === 2) {
+            acc = tree_sizeAux(acc + 1, m.data[2]);
+            m = m.data[3];
+            continue sizeAux;
+        }
+        else {
+            return acc | 0;
+        }
+    }
+}
+function tree_size(x) {
+    return tree_sizeAux(0, x);
+}
+function tree_empty() {
+    return new MapTree(0);
+}
+function tree_height(_arg1) {
+    return _arg1.tag === 1 ? 1 : _arg1.tag === 2 ? _arg1.data[4] : 0;
+}
+function tree_mk(l, k, v, r) {
+    const matchValue = l.tag === 0 ? r.tag === 0 ? 0 : 1 : 1;
+    switch (matchValue) {
+        case 0:
+            return new MapTree(1, [k, v]);
+        case 1:
+            const hl = tree_height(l) | 0;
+            const hr = tree_height(r) | 0;
+            const m = (hl < hr ? hr : hl) | 0;
+            return new MapTree(2, [k, v, l, r, m + 1]);
+    }
+    throw new Error("internal error: Map.tree_mk");
+}
+function tree_rebalance(t1, k, v, t2) {
+    const t1h = tree_height(t1);
+    const t2h = tree_height(t2);
+    if (t2h > t1h + 2) {
+        if (t2.tag === 2) {
+            if (tree_height(t2.data[2]) > t1h + 1) {
+                if (t2.data[2].tag === 2) {
+                    return tree_mk(tree_mk(t1, k, v, t2.data[2].data[2]), t2.data[2].data[0], t2.data[2].data[1], tree_mk(t2.data[2].data[3], t2.data[0], t2.data[1], t2.data[3]));
+                }
+                else {
+                    throw new Error("rebalance");
+                }
+            }
+            else {
+                return tree_mk(tree_mk(t1, k, v, t2.data[2]), t2.data[0], t2.data[1], t2.data[3]);
+            }
+        }
+        else {
+            throw new Error("rebalance");
+        }
+    }
+    else {
+        if (t1h > t2h + 2) {
+            if (t1.tag === 2) {
+                if (tree_height(t1.data[3]) > t2h + 1) {
+                    if (t1.data[3].tag === 2) {
+                        return tree_mk(tree_mk(t1.data[2], t1.data[0], t1.data[1], t1.data[3].data[2]), t1.data[3].data[0], t1.data[3].data[1], tree_mk(t1.data[3].data[3], k, v, t2));
+                    }
+                    else {
+                        throw new Error("rebalance");
+                    }
+                }
+                else {
+                    return tree_mk(t1.data[2], t1.data[0], t1.data[1], tree_mk(t1.data[3], k, v, t2));
+                }
+            }
+            else {
+                throw new Error("rebalance");
+            }
+        }
+        else {
+            return tree_mk(t1, k, v, t2);
+        }
+    }
+}
+function tree_add(comparer, k, v, m) {
+    if (m.tag === 1) {
+        const c = comparer.Compare(k, m.data[0]);
+        if (c < 0) {
+            return new MapTree(2, [k, v, new MapTree(0), m, 2]);
+        }
+        else if (c === 0) {
+            return new MapTree(1, [k, v]);
+        }
+        return new MapTree(2, [k, v, m, new MapTree(0), 2]);
+    }
+    else if (m.tag === 2) {
+        const c = comparer.Compare(k, m.data[0]);
+        if (c < 0) {
+            return tree_rebalance(tree_add(comparer, k, v, m.data[2]), m.data[0], m.data[1], m.data[3]);
+        }
+        else if (c === 0) {
+            return new MapTree(2, [k, v, m.data[2], m.data[3], m.data[4]]);
+        }
+        return tree_rebalance(m.data[2], m.data[0], m.data[1], tree_add(comparer, k, v, m.data[3]));
+    }
+    return new MapTree(1, [k, v]);
+}
+function tree_find(comparer, k, m) {
+    const res = tree_tryFind(comparer, k, m);
+    if (res != null) {
+        return res;
+    }
+    throw new Error("key not found");
+}
+function tree_tryFind(comparer, k, m) {
+    tryFind: while (true) {
+        if (m.tag === 1) {
+            const c = comparer.Compare(k, m.data[0]) | 0;
+            if (c === 0) {
+                return m.data[1];
+            }
+            else {
+                return null;
+            }
+        }
+        else if (m.tag === 2) {
+            const c_1 = comparer.Compare(k, m.data[0]) | 0;
+            if (c_1 < 0) {
+                comparer = comparer;
+                k = k;
+                m = m.data[2];
+                continue tryFind;
+            }
+            else if (c_1 === 0) {
+                return m.data[1];
+            }
+            else {
+                comparer = comparer;
+                k = k;
+                m = m.data[3];
+                continue tryFind;
+            }
+        }
+        else {
+            return null;
+        }
+    }
+}
+function tree_spliceOutSuccessor(m) {
+    if (m.tag === 1) {
+        return [m.data[0], m.data[1], new MapTree(0)];
+    }
+    else if (m.tag === 2) {
+        if (m.data[2].tag === 0) {
+            return [m.data[0], m.data[1], m.data[3]];
+        }
+        else {
+            const kvl = tree_spliceOutSuccessor(m.data[2]);
+            return [kvl[0], kvl[1], tree_mk(kvl[2], m.data[0], m.data[1], m.data[3])];
+        }
+    }
+    throw new Error("internal error: Map.spliceOutSuccessor");
+}
+function tree_remove(comparer, k, m) {
+    if (m.tag === 1) {
+        const c = comparer.Compare(k, m.data[0]);
+        if (c === 0) {
+            return new MapTree(0);
+        }
+        else {
+            return m;
+        }
+    }
+    else if (m.tag === 2) {
+        const c = comparer.Compare(k, m.data[0]);
+        if (c < 0) {
+            return tree_rebalance(tree_remove(comparer, k, m.data[2]), m.data[0], m.data[1], m.data[3]);
+        }
+        else if (c === 0) {
+            if (m.data[2].tag === 0) {
+                return m.data[3];
+            }
+            else {
+                if (m.data[3].tag === 0) {
+                    return m.data[2];
+                }
+                else {
+                    const input = tree_spliceOutSuccessor(m.data[3]);
+                    return tree_mk(m.data[2], input[0], input[1], input[2]);
+                }
+            }
+        }
+        else {
+            return tree_rebalance(m.data[2], m.data[0], m.data[1], tree_remove(comparer, k, m.data[3]));
+        }
+    }
+    else {
+        return tree_empty();
+    }
+}
+function tree_mem(comparer, k, m) {
+    mem: while (true) {
+        if (m.tag === 1) {
+            return comparer.Compare(k, m.data[0]) === 0;
+        }
+        else if (m.tag === 2) {
+            const c = comparer.Compare(k, m.data[0]) | 0;
+            if (c < 0) {
+                comparer = comparer;
+                k = k;
+                m = m.data[2];
+                continue mem;
+            }
+            else if (c === 0) {
+                return true;
+            }
+            else {
+                comparer = comparer;
+                k = k;
+                m = m.data[3];
+                continue mem;
+            }
+        }
+        else {
+            return false;
+        }
+    }
+}
+// function tree_foldFromTo(
+//     comparer: IComparer<any>, lo: any, hi: any,
+//     f: (k:any, v: any, acc: any) => any, m: MapTree, x: any): any {
+//   if (m.tag === 1) {
+//     var cLoKey = comparer.Compare(lo, m.data[0]);
+//     var cKeyHi = comparer.Compare(m.data[0], hi);
+//     var x_1 = (cLoKey <= 0 ? cKeyHi <= 0 : false) ? f(m.data[0], m.data[1], x) : x;
+//     return x_1;
+//   } else if (m.tag === 2) {
+//     var cLoKey = comparer.Compare(lo, m.data[0]);
+//     var cKeyHi = comparer.Compare(m.data[0], hi);
+//     var x_1 = cLoKey < 0 ? tree_foldFromTo(comparer, lo, hi, f, m.data[2], x) : x;
+//     var x_2 = (cLoKey <= 0 ? cKeyHi <= 0 : false) ? f(m.data[0], m.data[1], x_1) : x_1;
+//     var x_3 = cKeyHi < 0 ? tree_foldFromTo(comparer, lo, hi, f, m.data[3], x_2) : x_2;
+//     return x_3;
+//   }
+//   return x;
+// }
+// function tree_foldSection(
+//     comparer: IComparer<any>, lo: any, hi: any,
+//     f: (k: any, v: any, acc: any) => any, m: MapTree, x: any) {
+//   return comparer.Compare(lo, hi) === 1 ? x : tree_foldFromTo(comparer, lo, hi, f, m, x);
+// }
+// function tree_loop(m: MapTree, acc: any): List<[any,any]> {
+//   return m.tag === 1
+//     ? new List([m.data[0], m.data[1]], acc)
+//     : m.tag === 2
+//       ? tree_loop(m.data[2], new List([m.data[0], m.data[1]], tree_loop(m.data[3], acc)))
+//       : acc;
+// }
+// function tree_toList(m: MapTree) {
+//   return tree_loop(m, new List());
+// }
+// function tree_toArray(m: MapTree) {
+//   return Array.from(tree_toList(m));
+// }
+// function tree_ofList(comparer: IComparer<any>, l: List<[any,any]>) {
+//   return Seq.fold((acc: MapTree, tupledArg: [any, any]) => {
+//     return tree_add(comparer, tupledArg[0], tupledArg[1], acc);
+//   }, tree_empty(), l);
+// }
+function tree_mkFromEnumerator(comparer, acc, e) {
+    let cur = e.next();
+    while (!cur.done) {
+        acc = tree_add(comparer, cur.value[0], cur.value[1], acc);
+        cur = e.next();
+    }
+    return acc;
+}
+// function tree_ofArray(comparer: IComparer<any>, arr: ArrayLike<[any,any]>) {
+//   var res = tree_empty();
+//   for (var i = 0; i <= arr.length - 1; i++) {
+//     res = tree_add(comparer, arr[i][0], arr[i][1], res);
+//   }
+//   return res;
+// }
+function tree_ofSeq(comparer, c) {
+    const ie = c[Symbol.iterator]();
+    return tree_mkFromEnumerator(comparer, tree_empty(), ie);
+}
+// function tree_copyToArray(s: MapTree, arr: ArrayLike<any>, i: number) {
+//   tree_iter((x, y) => { arr[i++] = [x, y]; }, s);
+// }
+function tree_collapseLHS(stack) {
+    if (stack.tail != null) {
+        if (stack.head.tag === 1) {
+            return stack;
+        }
+        else if (stack.head.tag === 2) {
+            return tree_collapseLHS(ofArray([
+                stack.head.data[2],
+                new MapTree(1, [stack.head.data[0], stack.head.data[1]]),
+                stack.head.data[3],
+            ], stack.tail));
+        }
+        else {
+            return tree_collapseLHS(stack.tail);
+        }
+    }
+    else {
+        return new List$1();
+    }
+}
+function tree_mkIterator(s) {
+    return { stack: tree_collapseLHS(new List$1(s, new List$1())), started: false };
+}
+function tree_moveNext(i) {
+    function current(it) {
+        if (it.stack.tail == null) {
+            return null;
+        }
+        else if (it.stack.head.tag === 1) {
+            return [it.stack.head.data[0], it.stack.head.data[1]];
+        }
+        throw new Error("Please report error: Map iterator, unexpected stack for current");
+    }
+    if (i.started) {
+        if (i.stack.tail == null) {
+            return { done: true, value: null };
+        }
+        else {
+            if (i.stack.head.tag === 1) {
+                i.stack = tree_collapseLHS(i.stack.tail);
+                return {
+                    done: i.stack.tail == null,
+                    value: current(i),
+                };
+            }
+            else {
+                throw new Error("Please report error: Map iterator, unexpected stack for moveNext");
+            }
+        }
+    }
+    else {
+        i.started = true;
+        return {
+            done: i.stack.tail == null,
+            value: current(i),
+        };
+    }
+}
+class FableMap {
+    /** Do not call, use Map.create instead. */
+    constructor() { return; }
+    ToString() {
+        return "map [" + Array.from(this).map((x) => toString(x)).join("; ") + "]";
+    }
+    Equals(m2) {
+        return this.CompareTo(m2) === 0;
+    }
+    CompareTo(m2) {
+        return this === m2 ? 0 : compareWith((kvp1, kvp2) => {
+            const c = this.comparer.Compare(kvp1[0], kvp2[0]);
+            return c !== 0 ? c : compare(kvp1[1], kvp2[1]);
+        }, this, m2);
+    }
+    [Symbol.iterator]() {
+        const i = tree_mkIterator(this.tree);
+        return {
+            next: () => tree_moveNext(i),
+        };
+    }
+    entries() {
+        return this[Symbol.iterator]();
+    }
+    keys() {
+        return map$3((kv) => kv[0], this);
+    }
+    values() {
+        return map$3((kv) => kv[1], this);
+    }
+    get(k) {
+        return tree_find(this.comparer, k, this.tree);
+    }
+    has(k) {
+        return tree_mem(this.comparer, k, this.tree);
+    }
+    /** Mutating method */
+    set(k, v) {
+        this.tree = tree_add(this.comparer, k, v, this.tree);
+    }
+    /** Mutating method */
+    delete(k) {
+        // TODO: Is calculating the size twice is more performant than calling tree_mem?
+        const oldSize = tree_size(this.tree);
+        this.tree = tree_remove(this.comparer, k, this.tree);
+        return oldSize > tree_size(this.tree);
+    }
+    /** Mutating method */
+    clear() {
+        this.tree = tree_empty();
+    }
+    get size() {
+        return tree_size(this.tree);
+    }
+    [FSymbol.reflection]() {
+        return {
+            type: "Microsoft.FSharp.Collections.FSharpMap",
+            interfaces: ["System.IEquatable", "System.IComparable", "System.Collections.Generic.IDictionary"],
+        };
+    }
+}
+function from(comparer, tree) {
+    const map$$1 = new FableMap();
+    map$$1.tree = tree;
+    map$$1.comparer = comparer || new Comparer();
+    return map$$1;
+}
+function create(ie, comparer) {
+    comparer = comparer || new Comparer();
+    return from(comparer, ie ? tree_ofSeq(comparer, ie) : tree_empty());
+}
+
+
+
+
+
+
+function tryFind(k, map$$1) {
+    return tree_tryFind(map$$1.comparer, k, map$$1.tree);
+}
+
 // TODO: should be xs: Iterable<List<T>>
 
 
@@ -914,7 +1215,9 @@ function initialize(n, f) {
     }
     return xs;
 }
-
+function map$1(f, xs) {
+    return reverse(fold$1((acc, x) => new List$1(f(x), acc), new List$1(), xs));
+}
 
 
 
@@ -928,16 +1231,16 @@ function reverse(xs) {
 
 /* ToDo: instance unzip3() */
 
-const Result$1 = function (__exports) {
+const Result$$1 = function (__exports) {
   const map2$$1 = __exports.map2 = function (fn, a, b) {
     const matchValue = [a, b];
 
     if (matchValue[0].tag === 1) {
-      return new Result(1, matchValue[0].data);
+      return new Result$1(1, matchValue[0].data);
     } else if (matchValue[1].tag === 1) {
-      return new Result(1, matchValue[1].data);
+      return new Result$1(1, matchValue[1].data);
     } else {
-      return new Result(0, fn(matchValue[0].data, matchValue[1].data));
+      return new Result$1(0, fn(matchValue[0].data, matchValue[1].data));
     }
   };
 
@@ -956,7 +1259,7 @@ const Result$1 = function (__exports) {
       return function (state) {
         return foldBack$1(folder, list, state);
       };
-    })()(new Result(0, new List$1()));
+    })()(new Result$1(0, new List$1()));
   };
 
   const combineArray = __exports.combineArray = function (array) {
@@ -970,22 +1273,22 @@ const Result$1 = function (__exports) {
       return function (a_1, b) {
         return map2$$1(fn, a_1, b);
       };
-    })(), new Result(0, new Array(0)), array);
+    })(), new Result$1(0, new Array(0)), array);
   };
 
   const ofOption = __exports.ofOption = function (error, option) {
     if (option != null) {
-      return new Result(0, option);
+      return new Result$1(0, option);
     } else {
-      return new Result(1, error);
+      return new Result$1(1, error);
     }
   };
 
   const ofChoice = __exports.ofChoice = function (choice) {
     if (choice.tag === 1) {
-      return new Result(1, choice.data);
+      return new Result$1(1, choice.data);
     } else {
-      return new Result(0, choice.data);
+      return new Result$1(0, choice.data);
     }
   };
 
@@ -994,17 +1297,15 @@ const Result$1 = function (__exports) {
 
     switch ($var1[0]) {
       case 0:
-        return new Result(0, $var1[1]);
+        return new Result$1(0, $var1[1]);
 
       case 1:
-        return new Result(1, $var1[1]);
+        return new Result$1(1, $var1[1]);
     }
   };
 
-  const andThen = __exports.andThen = function () {
-    return function (binder, result) {
-      return bind(binder, result);
-    };
+  const andThen = __exports.andThen = function (func, result) {
+    return bind(func, result);
   };
 
   const Builder = __exports.Builder = class Builder {
@@ -1022,7 +1323,7 @@ const Result$1 = function (__exports) {
     }
 
     Return(x) {
-      return new Result(0, x);
+      return new Result$1(0, x);
     }
 
     ReturnFrom(m) {
@@ -1030,7 +1331,7 @@ const Result$1 = function (__exports) {
     }
 
     Zero() {
-      return new Result(0, null);
+      return new Result$1(0, null);
     }
 
   };
@@ -1047,7 +1348,109 @@ const Result$1 = function (__exports) {
   return __exports;
 }({});
 const ResultAutoOpen = function (__exports) {
-  const result = __exports.result = new Result$1.Builder();
+  const result = __exports.result = new Result$$1.Builder();
+  return __exports;
+}({});
+
+const _Promise = function (__exports) {
+  const result = __exports.result = function (a) {
+    return a.then($var1 => new Result$1(0, $var1), $var2 => new Result$1(1, $var2));
+  };
+
+  const mapResult = __exports.mapResult = function (fn, a) {
+    return a.then(function (result_1) {
+      return map(fn, result_1);
+    });
+  };
+
+  const bindResult = __exports.bindResult = function (fn, a) {
+    return a.then(function (a_1) {
+      return a_1.tag === 1 ? Promise.resolve(new Result$1(1, a_1.data)) : result(fn(a_1.data));
+    });
+  };
+
+  const PromiseBuilder = __exports.PromiseBuilder = class PromiseBuilder {
+    [FSymbol.reflection]() {
+      return {
+        type: "Fable.PowerPack.Promise.PromiseBuilder",
+        properties: {}
+      };
+    }
+
+    constructor() {}
+
+    For(seq, body) {
+      let p = Promise.resolve(null);
+
+      for (let a of seq) {
+        p = p.then(() => body(a));
+      }
+
+      return p;
+    }
+
+    While(guard, p) {
+      if (guard()) {
+        return p.then(() => this.While(guard, p));
+      } else {
+        return Promise.resolve(null);
+      }
+    }
+
+    TryFinally(p, compensation) {
+      return p.then(x => {
+        compensation();
+        return x;
+      }, er => {
+        compensation();
+        throw er;
+      });
+    }
+
+    Delay(generator) {
+      return {
+        then: (f1, f2) => {
+          try {
+            return generator().then(f1, f2);
+          } catch (er) {
+            if (f2 == null) {
+              return Promise.reject(er);
+            } else {
+              try {
+                return Promise.resolve(f2(er));
+              } catch (er_1) {
+                return Promise.reject(er_1);
+              }
+            }
+          }
+        },
+        catch: f => {
+          try {
+            return generator().catch(f);
+          } catch (er_2) {
+            try {
+              return Promise.resolve(f(er_2));
+            } catch (er_3) {
+              return Promise.reject(er_3);
+            }
+          }
+        }
+      };
+    }
+
+    Using(resource, binder) {
+      return this.TryFinally(binder(resource), () => {
+        resource.Dispose();
+      });
+    }
+
+  };
+  setType("Fable.PowerPack.Promise.PromiseBuilder", PromiseBuilder);
+  return __exports;
+}({});
+
+const PromiseImpl = function (__exports) {
+  const promise = __exports.promise = new _Promise.PromiseBuilder();
   return __exports;
 }({});
 
@@ -2082,7 +2485,7 @@ function create$1(year, month, day, h = 0, m = 0, s = 0, ms = 0, kind = 2 /* Loc
         date = new Date(Date.UTC(year, month - 1, day, h, m, s, ms));
     }
     if (year <= 99) {
-        date.setFullYear(year);
+        date.setFullYear(year, month - 1, day);
     }
     if (isNaN(date.getTime())) {
         throw new Error("The parameters describe an unrepresentable Date.");
@@ -2207,7 +2610,17 @@ function fsFormat(str, ...args) {
 
 
 
+/** Validates UUID as specified in RFC4122 (versions 1-5). Trims braces. */
 
+/* tslint:disable */
+// From https://gist.github.com/LeverOne/1308368
+
+/** Parse a UUID into it's component bytes */
+// Adapted from https://github.com/zefferus/uuid-parse
+
+/** Convert UUID byte array into a string */
+
+/* tslint:enable */
 
 
 function padLeft(str, len, ch, isRight) {
@@ -2222,6 +2635,10 @@ function padLeft(str, len, ch, isRight) {
 
 function flip(func, x, y) {
   return func(y, x);
+}
+
+function tuple(x, y) {
+  return [x, y];
 }
 
 class _Error {
@@ -2259,7 +2676,7 @@ class Decoder {
     return {
       type: "Fable.EdIlyin.Core.Decode.Decoder",
       interfaces: ["FSharpUnion"],
-      cases: [["Decoder", "string", FableFunction([GenericParam("From"), makeGeneric(Result, {
+      cases: [["Decoder", "string", FableFunction([GenericParam("From"), makeGeneric(Result$1, {
         T: GenericParam("To"),
         TError: _Error
       })])]]
@@ -2280,17 +2697,17 @@ function decode(decoder, source) {
   if (matchValue.tag === 1) {
     if (matchValue.data.tag === 1) {
       const error = matchValue.data.data;
-      return new Result(1, error);
+      return new Result$1(1, error);
     } else {
       const got = matchValue.data.data[1];
       const expecting = matchValue.data.data[0];
-      return new Result(1, {
+      return new Result$1(1, {
         formatFn: fsFormat("Expecting %s, but instead got: %A"),
         input: "Expecting %s, but instead got: %A"
       }.formatFn(x => x)(expecting, got));
     }
   } else {
-    return new Result(0, matchValue.data);
+    return new Result$1(0, matchValue.data);
   }
 }
 function primitive(expecting, func) {
@@ -2301,17 +2718,17 @@ function fromFunction(func) {
 }
 function fail(error) {
   return fromFunction(function (_arg1) {
-    return new Result(1, new _Error(1, error));
+    return new Result$1(1, new _Error(1, error));
   });
 }
 function succeed(value) {
   return fromFunction(function (_arg1) {
-    return new Result(0, value);
+    return new Result$1(0, value);
   });
 }
 
 function expectingButGot(expecting_1, got) {
-  return new Result(1, new _Error(0, [expecting_1, {
+  return new Result$1(1, new _Error(0, [expecting_1, {
     formatFn: fsFormat("%A"),
     input: "%A"
   }.formatFn(x => x)(got)]));
@@ -2324,7 +2741,7 @@ function andThen(func, decoder) {
     const matchValue = run(decoder, input);
 
     if (matchValue.tag === 1) {
-      return new Result(1, matchValue.data);
+      return new Result$1(1, matchValue.data);
     } else {
       return run(func(matchValue.data), input);
     }
@@ -2371,7 +2788,7 @@ function map$5(func, decoder) {
 
 
 function fromResult(result) {
-  return Result$1.unpack(function (error) {
+  return Result$$1.unpack(function (error) {
     return fail(error);
   }, function (value) {
     return succeed(value);
@@ -2380,20 +2797,24 @@ function fromResult(result) {
 
 function result(decoder) {
   return fromFunction($var2 => function (arg0) {
-    return new Result(0, arg0);
+    return new Result$1(0, arg0);
   }(function (source) {
     return decode(decoder, source);
   }($var2)));
 }
 
 
-
+function fromDecodeResult(decodeResult) {
+  return fromFunction(function (_arg1) {
+    return decodeResult;
+  });
+}
 
 
 
 function orElse(decoder2, decoder1) {
   return andThen(function (_arg1) {
-    return _arg1.tag === 0 ? fromResult(new Result(0, _arg1.data)) : decoder2;
+    return _arg1.tag === 0 ? fromResult(new Result$1(0, _arg1.data)) : decoder2;
   }, result(decoder1));
 }
 function oneOf(decoderList) {
@@ -2475,6 +2896,69 @@ function string(x) {
   return x;
 }
 
+const PromiseResult = function (__exports) {
+  const andThen = __exports.andThen = function (func, promiseResult) {
+    return function (builder_) {
+      return builder_.Delay(function () {
+        return promiseResult.then(function (_arg1) {
+          return (_arg1.tag === 0 ? func(_arg1.data) : function (builder__1) {
+            return builder__1.Delay(function () {
+              return Promise.resolve(new Result$1(1, _arg1.data));
+            });
+          }(PromiseImpl.promise)).then(function (_arg2) {
+            return Promise.resolve(_arg2);
+          });
+        });
+      });
+    }(PromiseImpl.promise);
+  };
+
+  const result = __exports.result = function (value) {
+    return function (builder_) {
+      return builder_.Delay(function () {
+        return Promise.resolve(new Result$1(0, value));
+      });
+    }(PromiseImpl.promise);
+  };
+
+  const Builder = __exports.Builder = class Builder {
+    [FSymbol.reflection]() {
+      return {
+        type: "Fable.EdIlyin.Core.PromiseResult.Builder",
+        properties: {}
+      };
+    }
+
+    constructor() {}
+
+    Bind(m, f) {
+      return andThen(f, m);
+    }
+
+    Return(m) {
+      return result(m);
+    }
+
+  };
+  setType("Fable.EdIlyin.Core.PromiseResult.Builder", Builder);
+
+  const mapError$$1 = __exports.mapError = function (func, promiseResult) {
+    return function (builder_) {
+      return builder_.Delay(function () {
+        return promiseResult.then(function (_arg1) {
+          return Promise.resolve(_arg1.tag === 1 ? new Result$1(1, func(_arg1.data)) : new Result$1(0, _arg1.data));
+        });
+      });
+    }(PromiseImpl.promise);
+  };
+
+  return __exports;
+}({});
+const PromiseResultAutoOpen = function (__exports) {
+  const promiseResult = __exports.promiseResult = new PromiseResult.Builder();
+  return __exports;
+}({});
+
 function decodeValue(decoder, jsonValue) {
   return decode(decoder, jsonValue);
 }
@@ -2483,7 +2967,7 @@ function decodeString(decoder, jsonString) {
   return decodeValue(decoder, pojo);
 }
 const value = primitive("a POJO", function (arg0) {
-  return new Result(0, arg0);
+  return new Result$1(0, arg0);
 });
 function field(name, decoder) {
   const label = {
@@ -2504,7 +2988,7 @@ function field(name, decoder) {
 }
 
 const bool$1 = primitive("a Bool", function (o) {
-  return typeof o === "boolean" ? new Result(0, o) : expectingButGot("a Bool", o);
+  return typeof o === "boolean" ? new Result$1(0, o) : expectingButGot("a Bool", o);
 });
 const uint16$1 = primitive("an UInt16", function (o) {
   return (value => {
@@ -2524,7 +3008,7 @@ const uint16$1 = primitive("an UInt16", function (o) {
 
     
     return false;
-  })(o) ? new Result(0, o) : expectingButGot("an UInt16", o);
+  })(o) ? new Result$1(0, o) : expectingButGot("an UInt16", o);
 });
 const uint32$1 = primitive("an UInt32", function (o) {
   return (value => {
@@ -2544,7 +3028,7 @@ const uint32$1 = primitive("an UInt32", function (o) {
 
     
     return false;
-  })(o) ? new Result(0, o) : expectingButGot("an UInt32", o);
+  })(o) ? new Result$1(0, o) : expectingButGot("an UInt32", o);
 });
 const uint64$1 = primitive("an UInt64", function (o) {
   return (value => {
@@ -2564,7 +3048,7 @@ const uint64$1 = primitive("an UInt64", function (o) {
 
     
     return false;
-  })(o) ? new Result(0, o) : expectingButGot("an UInt64", o);
+  })(o) ? new Result$1(0, o) : expectingButGot("an UInt64", o);
 });
 const int16$1 = primitive("an Int16", function (o) {
   return (value => {
@@ -2584,7 +3068,7 @@ const int16$1 = primitive("an Int16", function (o) {
 
     
     return false;
-  })(o) ? new Result(0, o) : expectingButGot("an Int16", o);
+  })(o) ? new Result$1(0, o) : expectingButGot("an Int16", o);
 });
 
 const _int$1 = primitive("an Int", function (o) {
@@ -2605,7 +3089,7 @@ const _int$1 = primitive("an Int", function (o) {
 
     
     return false;
-  })(o) ? new Result(0, o) : expectingButGot("an Int", o);
+  })(o) ? new Result$1(0, o) : expectingButGot("an Int", o);
 });
 
 const int64$1 = primitive("an Int64", function (o) {
@@ -2626,20 +3110,34 @@ const int64$1 = primitive("an Int64", function (o) {
 
     
     return false;
-  })(o) ? new Result(0, o) : expectingButGot("an Int64", o);
+  })(o) ? new Result$1(0, o) : expectingButGot("an Int64", o);
 });
 
 const _float$1 = primitive("a Float", function (o) {
-  return typeof o === "number" ? new Result(0, o) : expectingButGot("a Float", o);
+  return typeof o === "number" ? new Result$1(0, o) : expectingButGot("a Float", o);
 });
 
-
+function dict(decoder) {
+  const label = {
+    formatFn: fsFormat("maping of string to %s"),
+    input: "maping of string to %s"
+  }.formatFn(x => x)(getLabel(decoder));
+  return andThen(function (o) {
+    return fromResult(map(function (elements) {
+      return create(elements, new Comparer(comparePrimitives));
+    }, Result$$1.combineList(map$1(function (tupledArg) {
+      return map(function (y) {
+        return tuple(tupledArg[0], y);
+      }, decode(decoder, tupledArg[1]));
+    }, Object.entries(o)))));
+  }, value);
+}
 const dateTime = map$5(function (i) {
   const start = create$1(1970, 1, 1, 0, 0, 0, 0, 1);
   return addSeconds(start, i);
 }, _float$1);
 const string$1 = primitive("a String", function (o) {
-  return typeof o === "string" ? new Result(0, o) : function (got) {
+  return typeof o === "string" ? new Result$1(0, o) : function (got) {
     return expectingButGot("a String", got);
   }(o);
 });
@@ -2655,7 +3153,7 @@ function index(i, decoder) {
 }
 function Null$1(a) {
   return primitive("a Null", function (o) {
-    return o === null ? new Result(0, a) : expectingButGot("a Null", o);
+    return o === null ? new Result$1(0, a) : expectingButGot("a Null", o);
   });
 }
 function nullable(decoder) {
@@ -2667,21 +3165,25 @@ function nullable(decoder) {
 es6Promise.polyfill();
 
 function _fetch(url, properties, decoder) {
-  return function (builder_) {
-    return builder_.Bind(PromiseResult.mapError(function (e) {
-      return e.message;
-    }, _Promise.result(fetch(url, createObj(properties, 1)))), function (_arg1) {
-      return builder_.Bind(Result$1.unpack($var1 => function (arg00) {
-        return Promise.resolve(arg00);
-      }(function (arg0) {
-        return new Result(1, arg0);
-      }($var1)), function (x) {
-        return x;
-      }, decode(decoder, _arg1)), function (_arg2) {
-        return builder_.Return(_arg2);
+  return _Promise.result(function (builder_) {
+    return builder_.Delay(function () {
+      return fetch(url, createObj(properties, 1)).then(function (_arg1) {
+        return Result$$1.unpack($var2 => function (arg00) {
+          return Promise.resolve(arg00);
+        }(function (arg0) {
+          return new Result$1(1, arg0);
+        }($var2)), function (x_1) {
+          return x_1;
+        }, decode(decoder, _arg1)).then(function (_arg2) {
+          return Promise.resolve(_arg2);
+        });
       });
     });
-  }(PromiseResultAutoOpen.promiseResult);
+  }(PromiseImpl.promise)).then($var1 => Result$$1.andThen(function (x) {
+    return x;
+  }, mapError(function (e) {
+    return e.message;
+  }, $var1)));
 }
 
 function get(url, headers, decoder) {
@@ -2691,13 +3193,13 @@ function get(url, headers, decoder) {
 
 
 const text = primitive("a Text", function (response) {
-  return new Result(0, PromiseResult.mapError(function (e) {
+  return new Result$1(0, PromiseResult.mapError(function (e) {
     return e.message;
   }, _Promise.result(response.text())));
 });
 function json(decoder) {
   return primitive("an JSON", function (response) {
-    return new Result(0, function (builder_) {
+    return new Result$1(0, function (builder_) {
       return builder_.Delay(function () {
         return response.json().then(function (_arg1) {
           const result$$1 = decodeValue(decoder, _arg1);
@@ -2707,13 +3209,13 @@ function json(decoder) {
     }(PromiseImpl.promise));
   });
 }
-const response = primitive("an HTTP response", $var3 => function (arg0_1) {
-  return new Result(0, arg0_1);
-}(($var2 => function (arg00) {
+const response = primitive("an HTTP response", $var4 => function (arg0_1) {
+  return new Result$1(0, arg0_1);
+}(($var3 => function (arg00) {
   return Promise.resolve(arg00);
 }(function (arg0) {
-  return new Result(0, arg0);
-}($var2)))($var3)));
+  return new Result$1(0, arg0);
+}($var3)))($var4)));
 
 function equal(expected, actual) {
   const assert_ = assert;
@@ -2723,7 +3225,7 @@ it("fetch: json echo", function () {
   return function (builder_) {
     return builder_.Delay(function () {
       return get("http://echo.jsontest.com/abba/babba", new List$1(), json(value)).then(function (_arg1) {
-        const result = equal(new Result(0, object(ofArray([["abba", string("babba")]]))), _arg1);
+        const result = equal(new Result$1(0, object(ofArray([["abba", string("babba")]]))), _arg1);
         return Promise.resolve(null);
       });
     });
@@ -2733,7 +3235,7 @@ it("fetch: wrong address", function () {
   return function (builder__1) {
     return builder__1.Delay(function () {
       return get("http://echoa.jsontest.com", new List$1(), text).then(function (_arg1_1) {
-        const result_1 = equal(new Result(1, "request to http://echoa.jsontest.com failed, reason: getaddrinfo ENOTFOUND echoa.jsontest.com echoa.jsontest.com:80"), _arg1_1);
+        const result_1 = equal(new Result$1(1, "request to http://echoa.jsontest.com failed, reason: getaddrinfo ENOTFOUND echoa.jsontest.com echoa.jsontest.com:80"), _arg1_1);
         return Promise.resolve(null);
       });
     });
@@ -2743,7 +3245,7 @@ it("fetch: json echo with decoder", function () {
   return function (builder__2) {
     return builder__2.Delay(function () {
       return get("http://echo.jsontest.com/abba/babba", new List$1(), json(field("abba", string$1))).then(function (_arg1_2) {
-        const result_2 = equal(new Result(0, "babba"), _arg1_2);
+        const result_2 = equal(new Result$1(0, "babba"), _arg1_2);
         return Promise.resolve(null);
       });
     });
@@ -2753,7 +3255,7 @@ it("fetch: json echo with decoder: error", function () {
   return function (builder__3) {
     return builder__3.Delay(function () {
       return get("http://echo.jsontest.com/abba/babba", new List$1(), json(field("abbax", string$1))).then(function (_arg1_3) {
-        const result_3 = equal(new Result(1, "Expecting a String field 'abbax', but instead got: \"{\\\"abba\\\":\\\"babba\\\"}\""), _arg1_3);
+        const result_3 = equal(new Result$1(1, "Expecting a String field 'abbax', but instead got: \"{\\\"abba\\\":\\\"babba\\\"}\""), _arg1_3);
         return Promise.resolve(null);
       });
     });
@@ -2763,17 +3265,17 @@ it("fetch: json echo with decoder: error", function () {
 it("result: computation expression: return", function () {
   const assert_ = assert;
   assert_.deepStrictEqual(function (builder_) {
-    return builder_.Bind(new Result(0, 42), function (_arg1) {
+    return builder_.Bind(new Result$1(0, 42), function (_arg1) {
       return builder_.Return(_arg1);
     });
-  }(ResultAutoOpen.result), new Result(0, 42));
+  }(ResultAutoOpen.result), new Result$1(0, 42));
 });
 it("result: computation expression: return from", function () {
   const assert__1 = assert;
   assert__1.deepStrictEqual(function (builder__1) {
-    const r = new Result(0, 42);
+    const r = new Result$1(0, 42);
     return builder__1.ReturnFrom(r);
-  }(ResultAutoOpen.result), new Result(0, 42));
+  }(ResultAutoOpen.result), new Result$1(0, 42));
 });
 it("result: computation expression: zero", function () {
   const assert__2 = assert;
@@ -2783,7 +3285,7 @@ it("result: computation expression: zero", function () {
       input: "%i"
     }).formatFn(x => x)(42);
     return builder__2.Zero();
-  }(ResultAutoOpen.result), new Result(0, null));
+  }(ResultAutoOpen.result), new Result$1(0, null));
 });
 
 class queue {
@@ -3317,7 +3819,7 @@ function multipleFunTest(func_2, unitVar1) {
           return loop();
         })(), map$4(function (tupledArg_1) {
           return ~~(tupledArg_1[1] - tupledArg_1[0]);
-        }, Array.from(pairwise(_arg1_3)), new Int32Array(Array.from(pairwise(_arg1_3)).length)));
+        }, Array.from(pairwise(_arg1_3)), Int32Array));
         equal$1(initialize$1(22 - 1, function (_arg2_1) {
           return true;
         }), results);
@@ -3418,31 +3920,69 @@ it("throttle: couple of different functions", function () {
   }(singleton$3));
 });
 
+// TODO does this perfectly match the .NET behavior ?
+function tryParse$3(s, radix, initial) {
+    if (s != null) {
+        if (radix === 10) {
+            const v = +s;
+            if (!Number.isNaN(v)) {
+                return [true, v];
+            }
+        }
+    }
+    return [false, initial];
+}
+function parse$3(s, radix = 10) {
+    const a = tryParse$3(s, radix, 0);
+    if (a[0]) {
+        return a[1];
+    }
+    else {
+        // TODO FormatException ?
+        throw new Error("Input string was not in a correct format.");
+    }
+}
+
 function equal$2(expected, actual) {
   const assert_ = assert;
   assert_.deepStrictEqual(actual, expected);
 }
 it("json decode: null", function () {
-  equal$2(new Result(0, true), decodeString(Null$1(true), "null"));
+  equal$2(new Result$1(0, true), decodeString(Null$1(true), "null"));
 });
 it("json decode: nullable int: 42", function () {
-  equal$2(new Result(0, 42), decodeString(nullable(_int$1), "42"));
+  equal$2(new Result$1(0, 42), decodeString(nullable(_int$1), "42"));
 });
 it("json decode: nullable int: null", function () {
-  equal$2(new Result(0, null), decodeString(nullable(_int$1), "null"));
+  equal$2(new Result$1(0, null), decodeString(nullable(_int$1), "null"));
 });
 it("json decode: index: 42", function () {
-  equal$2(new Result(0, 42), decodeString(index(1, _int$1), "[12,42,43]"));
+  equal$2(new Result$1(0, 42), decodeString(index(1, _int$1), "[12,42,43]"));
 });
 it("json decode: index: nullable int: 42", function () {
-  equal$2(new Result(0, 42), decodeString(index(1, nullable(_int$1)), "[12,42,43]"));
+  equal$2(new Result$1(0, 42), decodeString(index(1, nullable(_int$1)), "[12,42,43]"));
 });
 it("json decode: index: nullable int: null", function () {
-  equal$2(new Result(0, null), decodeString(index(1, nullable(_int$1)), "[12,null,43]"));
+  equal$2(new Result$1(0, null), decodeString(index(1, nullable(_int$1)), "[12,null,43]"));
 });
 it("json decode: index last element", function () {
-  equal$2(new Result(0, 43), decodeString(index(2, nullable(_int$1)), "[12,null,43]"));
+  equal$2(new Result$1(0, 43), decodeString(index(2, nullable(_int$1)), "[12,null,43]"));
 });
 it("json decode: index out of length", function () {
-  equal$2(new Result(1, "Expecting a longer array. Need index 3, but instead got: \"[12,null,43]\""), decodeString(index(3, nullable(_int$1)), "[12,null,43]"));
+  equal$2(new Result$1(1, "Expecting a longer array. Need index 3, but instead got: \"[12,null,43]\""), decodeString(index(3, nullable(_int$1)), "[12,null,43]"));
+});
+const floatFromString = andThen(function (s) {
+  return fromDecodeResult((() => {
+    try {
+      return new Result$1(0, parse$3(s));
+    } catch (e) {
+      return expectingButGot("a Float in String", s);
+    }
+  })());
+}, string$1);
+it("json decode: wrong field name", function () {
+  equal$2(new Result$1(1, "Expecting a String field 'lowerAsk', but instead got: \"{\\\"last\\\":\\\"0.00007602\\\",\\\"lowestAsk\\\":\\\"0.00007602\\\"}\""), decodeString(field("lowerAsk", floatFromString), "{\"last\":\"0.00007602\",\"lowestAsk\":\"0.00007602\"}"));
+});
+it("json decode: dict: wrong field name", function () {
+  equal$2(new Result$1(1, "Expecting a String field 'lowerAsk', but instead got: \"{\\\"a\\\":1,\\\"b\\\":2}\""), decodeString(dict(field("lowerAsk", floatFromString)), "{\"one\":{\"a\":1,\"b\":2},\"two\":{\"a\":2,\"b\":3}}"));
 });

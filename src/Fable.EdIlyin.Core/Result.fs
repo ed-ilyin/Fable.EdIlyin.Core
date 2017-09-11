@@ -38,7 +38,7 @@ module Result =
             | Ok (Error x) | Error x -> Error x
 
 
-    let andThen = Result.bind
+    let andThen func result = Result.bind func result
 
 
     type Builder () =
