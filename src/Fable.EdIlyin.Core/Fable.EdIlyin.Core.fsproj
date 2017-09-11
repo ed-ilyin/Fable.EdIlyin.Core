@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Author>Ed Ilyin</Author>
     <TargetFramework>netstandard1.6</TargetFramework>
-    <Version>0.0.28</Version>
+    <Version>0.0.29</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
