@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Author>Ed Ilyin</Author>
     <TargetFramework>netstandard1.6</TargetFramework>
-    <Version>0.0.29</Version>
+    <Version>0.0.31</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
@@ -19,6 +19,7 @@
     <Compile Include="Throttle.fs" />
     <Compile Include="PromiseResult.fs" />
     <Compile Include="Http\Fetch.fs" />
+    <Compile Include="Signal.fs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="*.fsproj; **\*.fs" PackagePath="fable\" />

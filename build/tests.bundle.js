@@ -1345,6 +1345,14 @@ const Result$$1 = function (__exports) {
     }
   };
 
+  const unwrap = __exports.unwrap = function (defaultValue, okFunc, _arg1) {
+    if (_arg1.tag === 0) {
+      return okFunc(_arg1.data);
+    } else {
+      return defaultValue;
+    }
+  };
+
   return __exports;
 }({});
 const ResultAutoOpen = function (__exports) {

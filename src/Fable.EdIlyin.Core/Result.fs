@@ -52,6 +52,10 @@ module Result =
         function Error e -> errorFunc e | Ok a -> okFunc a
 
 
+    let unwrap defaultValue okFunc =
+        function Error _ -> defaultValue | Ok a -> okFunc a
+
+
 [<AutoOpen>]
 module ResultAutoOpen =
     let result = Result.Builder ()
