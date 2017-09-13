@@ -25,9 +25,17 @@ let filter predicate signal =
         )
 
 
+let choose chooser signal =
+    init signal.start
+        (fun nextFunc ->
+            signal.func
+                <| fun x -> chooser x |> Option.map nextFunc |> ignore
+        )
+
+
 let map func signal =
     init signal.start
         <| fun nextFunc -> func >> nextFunc |> signal.func
 
 
-let start signal = signal.func id |> signal.start
+let start signal = signal.func ignore |> signal.start
