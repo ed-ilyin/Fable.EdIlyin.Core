@@ -30,9 +30,7 @@ let decode decoder source =
         | Ok output -> Ok output
 
         | Error (ExpectingButGot (expecting, got)) ->
-            sprintf "Expecting %s, but instead got: %A"
-                expecting
-                got
+            sprintf "Expecting %s, but instead got: %A" expecting got
                 |> Error
 
         | Error (ErrorMessage error) -> Error error

@@ -226,6 +226,22 @@ let list decoder =
             )
 
 
+let array decoder =
+    let label = "a List"
+
+    Decode.primitive label
+            (fun (o: obj) ->
+                if jsInstanceOfArray o then
+                    o
+                        :?> obj []
+                        |> Array.map (Decode.decode decoder)
+                        |> Result.combineArray
+                        |> Decode.resultFromResult
+
+                else Decode.expectingButGot label o
+            )
+
+
 let index i decoder =
     Decode.primitive "an array"
         <| fun array ->
@@ -260,3 +276,12 @@ let Null a =
 
 let nullable decoder =
     Decode.oneOf [ Null None; Decode.map Some decoder ]
+
+
+let optionalField fieldName decoder =
+    let finishDecoding json =
+        match decodeValue (field fieldName value) json with
+            | Ok _ -> field fieldName decoder |> Decode.map Some
+            | Result.Error _ -> Decode.succeed None
+
+    in value |> Decode.andThen finishDecoding
