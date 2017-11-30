@@ -31,7 +31,8 @@ let fetch url properties decoder =
         }
         |> Promise.result
         |> Promise.map
-            (Result.mapError (fun e -> e.Message) >> Result.andThen id
+            (Result.mapError (fun (e: System.Exception) -> e.Message)
+                >> Result.andThen id
             )
 
 
@@ -74,7 +75,8 @@ let text =
         (fun (response: Response) ->
             response.text ()
                 |> Promise.result
-                |> PromiseResult.mapError (fun e -> e.Message)
+                |> PromiseResult.mapError
+                    (fun (e: System.Exception) -> e.Message)
                 |> Ok
         )
 
