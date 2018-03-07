@@ -319,7 +319,21 @@ function toString$$1(obj, quoteStrings = false) {
         return "{" + Object.getOwnPropertyNames(obj).map((k) => k + ": " + String(obj[k])).join(", ") + "}";
     }
 }
+class ObjectRef {
+    static id(o) {
+        if (!ObjectRef.idMap.has(o)) {
+            ObjectRef.idMap.set(o, ++ObjectRef.count);
+        }
+        return ObjectRef.idMap.get(o);
+    }
+}
+ObjectRef.idMap = new WeakMap();
+ObjectRef.count = 0;
+
 function hash(x) {
+    if (typeof x === typeof 1) {
+        return x * 2654435761 | 0;
+    }
     if (x != null && typeof x.GetHashCode === "function") {
         return x.GetHashCode();
     }
@@ -344,6 +358,9 @@ function equals(x, y) {
     }
     else if (y == null) {
         return false;
+    }
+    else if (typeof x !== "object" || typeof y !== "object") {
+        return x === y;
         // Equals override or IEquatable implementation
     }
     else if (typeof x.Equals === "function") {
@@ -399,6 +416,9 @@ function compare$$1(x, y) {
     }
     else if (y == null) {
         return 1; // everything is bigger than null
+    }
+    else if (typeof x !== "object" || typeof y !== "object") {
+        return x === y ? 0 : (x < y ? -1 : 1);
         // Some types (see Long.ts) may just implement the function and not the interface
         // else if (hasInterface(x, "System.IComparable"))
     }
@@ -457,6 +477,10 @@ function compare$$1(x, y) {
         return x < y ? -1 : 1;
     }
 }
+
+
+
+
 function equalsRecords(x, y) {
     // Optimization if they are referencially equal
     if (x === y) {
@@ -564,8 +588,6 @@ function createObj(fields, caseRule = CaseRules.None, casesCache) {
 
 
 
-
-
 // ICollection.Clear method can be called on IDictionary
 // too so we need to make a runtime check (see #1120)
 
@@ -584,7 +606,7 @@ class Result$1 {
         return {
             type: "Microsoft.FSharp.Core.FSharpResult",
             interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
-            cases: [["Ok", Any], ["Error", Any]],
+            cases: [["Ok", GenericParam("T")], ["Error", GenericParam("TError")]],
         };
     }
 }
@@ -614,54 +636,42 @@ class List$1 {
     ToString() {
         return "[" + Array.from(this).map((x) => toString$$1(x)).join("; ") + "]";
     }
-    Equals(x) {
+    Equals(other) {
         // Optimization if they are referencially equal
-        if (this === x) {
+        if (this === other) {
             return true;
         }
         else {
-            const iter1 = this[Symbol.iterator]();
-            const iter2 = x[Symbol.iterator]();
-            while (true) {
-                const cur1 = iter1.next();
-                const cur2 = iter2.next();
-                if (cur1.done) {
-                    return cur2.done ? true : false;
-                }
-                else if (cur2.done) {
-                    return false;
-                }
-                else if (!equals(cur1.value, cur2.value)) {
-                    return false;
+            let cur1 = this;
+            let cur2 = other;
+            while (equals(cur1.head, cur2.head)) {
+                cur1 = cur1.tail;
+                cur2 = cur2.tail;
+                if (cur1 == null) {
+                    return cur2 == null;
                 }
             }
+            return false;
         }
     }
-    CompareTo(x) {
+    CompareTo(other) {
         // Optimization if they are referencially equal
-        if (this === x) {
+        if (this === other) {
             return 0;
         }
         else {
-            let acc = 0;
-            const iter1 = this[Symbol.iterator]();
-            const iter2 = x[Symbol.iterator]();
-            while (true) {
-                const cur1 = iter1.next();
-                const cur2 = iter2.next();
-                if (cur1.done) {
-                    return cur2.done ? acc : -1;
+            let cur1 = this;
+            let cur2 = other;
+            let res = compare$$1(cur1.head, cur2.head);
+            while (res === 0) {
+                cur1 = cur1.tail;
+                cur2 = cur2.tail;
+                if (cur1 == null) {
+                    return cur2 == null ? 0 : -1;
                 }
-                else if (cur2.done) {
-                    return 1;
-                }
-                else {
-                    acc = compare$$1(cur1.value, cur2.value);
-                    if (acc !== 0) {
-                        return acc;
-                    }
-                }
+                res = compare$$1(cur1.head, cur2.head);
             }
+            return res;
         }
     }
     get length() {
@@ -1484,225 +1494,236 @@ function reverse(xs) {
 /* ToDo: instance unzip3() */
 
 const Result$$1 = function (__exports) {
-  const map2$$1 = __exports.map2 = function (fn, a, b) {
-    const matchValue = [a, b];
+    const map2$$1 = __exports.map2 = function (fn, a, b) {
+        const matchValue = [a, b];
 
-    if (matchValue[0].tag === 1) {
-      return new Result$1(1, matchValue[0].data);
-    } else if (matchValue[1].tag === 1) {
-      return new Result$1(1, matchValue[1].data);
-    } else {
-      return new Result$1(0, fn(matchValue[0].data, matchValue[1].data));
-    }
-  };
+        if (matchValue[0].tag === 1) {
+            return new Result$1(1, matchValue[0].data);
+        } else if (matchValue[1].tag === 1) {
+            return new Result$1(1, matchValue[1].data);
+        } else {
+            return new Result$1(0, fn(matchValue[0].data, matchValue[1].data));
+        }
+    };
 
-  const combineList = __exports.combineList = function (list) {
-    var folder;
-    var fn;
-    return (folder = (fn = function (e, l) {
-      return new List$1(e, l);
-    }, function (a, b) {
-      return map2$$1(fn, a, b);
-    }), function (state) {
-      return foldBack$1(folder, list, state);
-    })(new Result$1(0, new List$1()));
-  };
+    const combineList = __exports.combineList = function (list) {
+        var folder;
+        var fn;
+        return (folder = (fn = function (e, l) {
+            return new List$1(e, l);
+        }, function (a, b) {
+            return map2$$1(fn, a, b);
+        }), function (state) {
+            return foldBack$1(folder, list, state);
+        })(new Result$1(0, new List$1()));
+    };
 
-  const combineArray = __exports.combineArray = function (array) {
-    var fn;
-    return fold$1((fn = function (a, e) {
-      return function (array2) {
-        return a.concat(array2);
-      }(Array.from(singleton$1(e)));
-    }, function (a_1, b) {
-      return map2$$1(fn, a_1, b);
-    }), new Result$1(0, new Array(0)), array);
-  };
+    const combineArray = __exports.combineArray = function (array) {
+        var fn;
+        return fold$1((fn = function (a, e) {
+            return a.concat.bind(a)(Array.from(singleton$1(e)));
+        }, function (a_1, b) {
+            return map2$$1(fn, a_1, b);
+        }), new Result$1(0, new Array(0)), array);
+    };
 
-  const ofOption = __exports.ofOption = function (error, option) {
-    if (option != null) {
-      return new Result$1(0, getValue(option));
-    } else {
-      return new Result$1(1, error);
-    }
-  };
+    const ofOption = __exports.ofOption = function (error, option) {
+        if (option != null) {
+            return new Result$1(0, getValue(option));
+        } else {
+            return new Result$1(1, error);
+        }
+    };
 
-  const ofChoice = __exports.ofChoice = function (choice) {
-    if (choice.tag === 1) {
-      return new Result$1(1, choice.data);
-    } else {
-      return new Result$1(0, choice.data);
-    }
-  };
+    const ofChoice = __exports.ofChoice = function (choice) {
+        if (choice.tag === 1) {
+            return new Result$1(1, choice.data);
+        } else {
+            return new Result$1(0, choice.data);
+        }
+    };
 
-  const fromResultResult = __exports.fromResultResult = function (resultResult) {
-    const $var1 = resultResult.tag === 1 ? [1, resultResult.data] : resultResult.data.tag === 1 ? [1, resultResult.data.data] : [0, resultResult.data.data];
+    const fromResultResult = __exports.fromResultResult = function (resultResult) {
+        const $var1 = resultResult.tag === 1 ? [1, resultResult.data] : resultResult.data.tag === 1 ? [1, resultResult.data.data] : [0, resultResult.data.data];
 
-    switch ($var1[0]) {
-      case 0:
-        return new Result$1(0, $var1[1]);
+        switch ($var1[0]) {
+            case 0:
+                return new Result$1(0, $var1[1]);
 
-      case 1:
-        return new Result$1(1, $var1[1]);
-    }
-  };
+            case 1:
+                return new Result$1(1, $var1[1]);
+        }
+    };
 
-  const andThen = __exports.andThen = function (func, result) {
-    return bind(func, result);
-  };
+    const andThen = __exports.andThen = function (func, result) {
+        return bind(func, result);
+    };
 
-  const Builder = __exports.Builder = class Builder {
-    [FSymbol.reflection]() {
-      return {
-        type: "Fable.EdIlyin.Core.Result.Builder",
-        properties: {}
-      };
-    }
+    const Builder = __exports.Builder = class Builder {
+        [FSymbol.reflection]() {
+            return {
+                type: "Fable.EdIlyin.Core.Result.Builder",
+                properties: {}
+            };
+        }
 
-    constructor() {}
+        constructor() {}
 
-    Bind(m, f) {
-      return bind(f, m);
-    }
+        Bind(m, f) {
+            return bind(f, m);
+        }
 
-    Return(x) {
-      return new Result$1(0, x);
-    }
+        Return(x) {
+            return new Result$1(0, x);
+        }
 
-    ReturnFrom(m) {
-      return m;
-    }
+        ReturnFrom(m) {
+            return m;
+        }
 
-    Zero() {
-      return new Result$1(0, null);
-    }
+        Zero() {
+            return new Result$1(0, null);
+        }
 
-  };
-  setType("Fable.EdIlyin.Core.Result.Builder", Builder);
+    };
+    setType("Fable.EdIlyin.Core.Result.Builder", Builder);
 
-  const unpack = __exports.unpack = function (errorFunc, okFunc, _arg1) {
-    if (_arg1.tag === 0) {
-      return okFunc(_arg1.data);
-    } else {
-      return errorFunc(_arg1.data);
-    }
-  };
+    const unpack = __exports.unpack = function (errorFunc, okFunc, _arg1) {
+        if (_arg1.tag === 0) {
+            return okFunc(_arg1.data);
+        } else {
+            return errorFunc(_arg1.data);
+        }
+    };
 
-  const unwrap = __exports.unwrap = function (defaultValue, okFunc, _arg1) {
-    if (_arg1.tag === 0) {
-      return okFunc(_arg1.data);
-    } else {
-      return defaultValue;
-    }
-  };
+    const unwrap = __exports.unwrap = function (defaultValue, okFunc, _arg1) {
+        if (_arg1.tag === 0) {
+            return okFunc(_arg1.data);
+        } else {
+            return defaultValue;
+        }
+    };
 
-  return __exports;
+    return __exports;
 }({});
 const ResultAutoOpen = function (__exports) {
-  const result = __exports.result = new Result$$1.Builder();
-  return __exports;
+    const result = __exports.result = new Result$$1.Builder();
+    return __exports;
 }({});
 
 const _Promise = function (__exports) {
-  const result = __exports.result = function (a) {
-    return a.then($var1 => new Result$1(0, $var1), $var2 => new Result$1(1, $var2));
-  };
+    const result = __exports.result = function (a) {
+        return a.then($var1 => new Result$1(0, $var1), $var2 => new Result$1(1, $var2));
+    };
 
-  const mapResult = __exports.mapResult = function (fn, a) {
-    return a.then(function (result_1) {
-      return map(fn, result_1);
-    });
-  };
+    const mapResult = __exports.mapResult = function (fn, a) {
+        return a.then(function (result_1) {
+            return map(fn, result_1);
+        });
+    };
 
-  const bindResult = __exports.bindResult = function (fn, a) {
-    return a.then(function (a_1) {
-      return a_1.tag === 1 ? Promise.resolve(new Result$1(1, a_1.data)) : result(fn(a_1.data));
-    });
-  };
+    const bindResult = __exports.bindResult = function (fn, a) {
+        return a.then(function (a_1) {
+            return a_1.tag === 1 ? Promise.resolve(new Result$1(1, a_1.data)) : result(fn(a_1.data));
+        });
+    };
 
-  const PromiseBuilder = __exports.PromiseBuilder = class PromiseBuilder {
-    [FSymbol.reflection]() {
-      return {
-        type: "Fable.PowerPack.Promise.PromiseBuilder",
-        properties: {}
-      };
-    }
+    const mapResultError = __exports.mapResultError = function (fn, a) {
+        return a.then(function (result_1) {
+            return mapError(fn, result_1);
+        });
+    };
 
-    constructor() {}
+    const tap = __exports.tap = function (fn, a) {
+        return a.then(function (x) {
+            fn(x);
+            return x;
+        });
+    };
 
-    For(seq, body) {
-      let p = Promise.resolve(null);
-
-      for (let a of seq) {
-        p = p.then(() => body(a));
-      }
-
-      return p;
-    }
-
-    While(guard, p) {
-      if (guard()) {
-        return p.then(() => this.While(guard, p));
-      } else {
-        return Promise.resolve(null);
-      }
-    }
-
-    TryFinally(p, compensation) {
-      return p.then(x => {
-        compensation();
-        return x;
-      }, er => {
-        compensation();
-        throw er;
-      });
-    }
-
-    Delay(generator) {
-      return {
-        then: (f1, f2) => {
-          try {
-            return generator().then(f1, f2);
-          } catch (er) {
-            if (f2 == null) {
-              return Promise.reject(er);
-            } else {
-              try {
-                return Promise.resolve(f2(er));
-              } catch (er_1) {
-                return Promise.reject(er_1);
-              }
-            }
-          }
-        },
-        catch: f => {
-          try {
-            return generator().catch(f);
-          } catch (er_2) {
-            try {
-              return Promise.resolve(f(er_2));
-            } catch (er_3) {
-              return Promise.reject(er_3);
-            }
-          }
+    const PromiseBuilder = __exports.PromiseBuilder = class PromiseBuilder {
+        [FSymbol.reflection]() {
+            return {
+                type: "Fable.PowerPack.Promise.PromiseBuilder",
+                properties: {}
+            };
         }
-      };
-    }
 
-    Using(resource, binder) {
-      return this.TryFinally(binder(resource), () => {
-        resource.Dispose();
-      });
-    }
+        constructor() {}
 
-  };
-  setType("Fable.PowerPack.Promise.PromiseBuilder", PromiseBuilder);
-  return __exports;
+        For(seq, body) {
+            let p = Promise.resolve(null);
+
+            for (let a of seq) {
+                p = p.then(() => body(a));
+            }
+
+            return p;
+        }
+
+        While(guard, p) {
+            if (guard()) {
+                return p.then(() => this.While(guard, p));
+            } else {
+                return Promise.resolve(null);
+            }
+        }
+
+        TryFinally(p, compensation) {
+            return p.then(x => {
+                compensation();
+                return x;
+            }, er => {
+                compensation();
+                throw er;
+            });
+        }
+
+        Delay(generator) {
+            return {
+                then: (f1, f2) => {
+                    try {
+                        return generator().then(f1, f2);
+                    } catch (er) {
+                        if (f2 == null) {
+                            return Promise.reject(er);
+                        } else {
+                            try {
+                                return Promise.resolve(f2(er));
+                            } catch (er_1) {
+                                return Promise.reject(er_1);
+                            }
+                        }
+                    }
+                },
+                catch: f => {
+                    try {
+                        return generator().catch(f);
+                    } catch (er_2) {
+                        try {
+                            return Promise.resolve(f(er_2));
+                        } catch (er_3) {
+                            return Promise.reject(er_3);
+                        }
+                    }
+                }
+            };
+        }
+
+        Using(resource, binder) {
+            return this.TryFinally(binder(resource), () => {
+                resource.Dispose();
+            });
+        }
+
+    };
+    setType("Fable.PowerPack.Promise.PromiseBuilder", PromiseBuilder);
+    return __exports;
 }({});
 
 const PromiseImpl = function (__exports) {
-  const promise = __exports.promise = new _Promise.PromiseBuilder();
-  return __exports;
+    const promise = __exports.promise = new _Promise.PromiseBuilder();
+    return __exports;
 }({});
 
 // From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
@@ -1723,6 +1744,7 @@ function printf(input) {
         cont: fsFormat(input),
     };
 }
+
 
 function toText(arg) {
     return arg.cont((x) => x);
@@ -1827,136 +1849,134 @@ function tuple(x, y) {
 }
 
 class _Error {
-  constructor(tag, data) {
-    this.tag = tag | 0;
-    this.data = data;
-  }
+    constructor(tag, data) {
+        this.tag = tag | 0;
+        this.data = data;
+    }
 
-  [FSymbol.reflection]() {
-    return {
-      type: "Fable.EdIlyin.Core.Decode.Error",
-      interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
-      cases: [["ExpectingButGot", "string", "string"], ["ErrorMessage", "string"]]
-    };
-  }
+    [FSymbol.reflection]() {
+        return {
+            type: "Fable.EdIlyin.Core.Decode.Error",
+            interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
+            cases: [["ExpectingButGot", "string", "string"], ["ErrorMessage", "string"]]
+        };
+    }
 
-  Equals(other) {
-    return this === other || this.tag === other.tag && equals(this.data, other.data);
-  }
+    Equals(other) {
+        return this === other || this.tag === other.tag && equals(this.data, other.data);
+    }
 
-  CompareTo(other) {
-    return compareUnions(this, other) | 0;
-  }
+    CompareTo(other) {
+        return compareUnions(this, other) | 0;
+    }
 
 }
 
 setType("Fable.EdIlyin.Core.Decode.Error", _Error);
 class Decoder {
-  constructor(tag, data) {
-    this.tag = tag | 0;
-    this.data = data;
-  }
+    constructor(tag, data) {
+        this.tag = tag | 0;
+        this.data = data;
+    }
 
-  [FSymbol.reflection]() {
-    return {
-      type: "Fable.EdIlyin.Core.Decode.Decoder",
-      interfaces: ["FSharpUnion"],
-      cases: [["Decoder", "string", FableFunction([GenericParam("From"), makeGeneric(Result$1, {
-        T: GenericParam("To"),
-        TError: _Error
-      })])]]
-    };
-  }
+    [FSymbol.reflection]() {
+        return {
+            type: "Fable.EdIlyin.Core.Decode.Decoder",
+            interfaces: ["FSharpUnion"],
+            cases: [["Decoder", "string", FableFunction([GenericParam("From"), makeGeneric(Result$1, {
+                T: GenericParam("To"),
+                TError: _Error
+            })])]]
+        };
+    }
 
 }
 setType("Fable.EdIlyin.Core.Decode.Decoder", Decoder);
 function run(_arg1, input) {
-  return _arg1.data[1](input);
+    return _arg1.data[1](input);
 }
 function getLabel(_arg1) {
-  return _arg1.data[0];
+    return _arg1.data[0];
 }
 function decode(decoder, source) {
-  const matchValue = run(decoder, source);
+    const matchValue = run(decoder, source);
 
-  if (matchValue.tag === 1) {
-    if (matchValue.data.tag === 1) {
-      const error = matchValue.data.data;
-      return new Result$1(1, error);
+    if (matchValue.tag === 1) {
+        if (matchValue.data.tag === 1) {
+            const error = matchValue.data.data;
+            return new Result$1(1, error);
+        } else {
+            const got = matchValue.data.data[1];
+            const expecting = matchValue.data.data[0];
+            return new Result$1(1, toText(printf("Expecting %s, but instead got: %A"))(expecting, got));
+        }
     } else {
-      const got = matchValue.data.data[1];
-      const expecting = matchValue.data.data[0];
-      return new Result$1(1, toText(printf("Expecting %s, but instead got: %A"))(expecting, got));
+        return new Result$1(0, matchValue.data);
     }
-  } else {
-    return new Result$1(0, matchValue.data);
-  }
 }
 function primitive(expecting, func) {
-  return new Decoder(0, [expecting, func]);
+    return new Decoder(0, [expecting, func]);
 }
 function fromFunction(func) {
-  return primitive("", func);
+    return primitive("", func);
 }
 function fail(error) {
-  return fromFunction(function (_arg1) {
-    return new Result$1(1, new _Error(1, error));
-  });
+    return fromFunction(function (_arg1) {
+        return new Result$1(1, new _Error(1, error));
+    });
 }
 function succeed(value) {
-  return fromFunction(function (_arg1) {
-    return new Result$1(0, value);
-  });
+    return fromFunction(function (_arg1) {
+        return new Result$1(0, value);
+    });
 }
 
 function expectingButGot(expecting_1, got) {
-  return new Result$1(1, new _Error(0, [expecting_1, toText(printf("%A"))(got)]));
+    return new Result$1(1, new _Error(0, [expecting_1, toText(printf("%A"))(got)]));
 }
 function andThen(func, decoder) {
-  const label = getLabel(decoder);
-  return function (func_1) {
-    return primitive(label, func_1);
-  }(function (input) {
-    const matchValue = run(decoder, input);
+    const label = getLabel(decoder);
+    return function (func_1) {
+        return primitive(label, func_1);
+    }(function (input) {
+        const matchValue = run(decoder, input);
 
-    if (matchValue.tag === 1) {
-      return new Result$1(1, matchValue.data);
-    } else {
-      return run(func(matchValue.data), input);
-    }
-  });
+        if (matchValue.tag === 1) {
+            return new Result$1(1, matchValue.data);
+        } else {
+            return run(func(matchValue.data), input);
+        }
+    });
 }
 class Builder {
-  [FSymbol.reflection]() {
-    return {
-      type: "Fable.EdIlyin.Core.Decode.Builder",
-      properties: {}
-    };
-  }
+    [FSymbol.reflection]() {
+        return {
+            type: "Fable.EdIlyin.Core.Decode.Builder",
+            properties: {}
+        };
+    }
 
-  constructor() {}
+    constructor() {}
 
-  Bind(m, f) {
-    return andThen(f, m);
-  }
+    Bind(m, f) {
+        return andThen(f, m);
+    }
 
-  Return(m) {
-    return succeed(m);
-  }
+    Return(m) {
+        return succeed(m);
+    }
 
 }
 setType("Fable.EdIlyin.Core.Decode.Builder", Builder);
 function andMap(decoder, functionDecoder) {
-  return andThen(function (f) {
-    return andThen($var1 => function (value) {
-      return succeed(value);
-    }(f($var1)), decoder);
-  }, functionDecoder);
+    return andThen(function (f) {
+        return andThen($var1 => succeed(f($var1)), decoder);
+    }, functionDecoder);
 }
 function map$5(func, decoder) {
-  return function (functionDecoder) {
-    return andMap(decoder, functionDecoder);
-  }(succeed(func));
+    return function (functionDecoder) {
+        return andMap(decoder, functionDecoder);
+    }(succeed(func));
 }
 
 
@@ -1967,42 +1987,36 @@ function map$5(func, decoder) {
 
 
 function fromResult(result) {
-  return Result$$1.unpack(function (error) {
-    return fail(error);
-  }, function (value) {
-    return succeed(value);
-  }, result);
+    return Result$$1.unpack(fail, succeed, result);
 }
 
 function result(decoder) {
-  return fromFunction($var2 => function (arg0) {
-    return new Result$1(0, arg0);
-  }(function (source) {
-    return decode(decoder, source);
-  }($var2)));
+    return fromFunction($var2 => function (arg0) {
+        return new Result$1(0, arg0);
+    }(function (source) {
+        return decode(decoder, source);
+    }($var2)));
 }
 
 
 function fromDecodeResult(decodeResult) {
-  return fromFunction(function (_arg1) {
-    return decodeResult;
-  });
+    return fromFunction(function (_arg1) {
+        return decodeResult;
+    });
 }
 
 
 
 function orElse(decoder2, decoder1) {
-  return andThen(function (_arg1) {
-    return _arg1.tag === 0 ? fromResult(new Result$1(0, _arg1.data)) : decoder2;
-  }, result(decoder1));
+    return andThen(function (_arg1) {
+        return _arg1.tag === 0 ? fromResult(new Result$1(0, _arg1.data)) : decoder2;
+    }, result(decoder1));
 }
 function oneOf(decoderList) {
-  var func;
-  return reduce((func = function (decoder2, decoder1) {
-    return orElse(decoder2, decoder1);
-  }, function (x, y) {
-    return flip(func, x, y);
-  }), decoderList);
+    var func;
+    return reduce((func = orElse, function (x, y) {
+        return flip(func, x, y);
+    }), decoderList);
 }
 
 // TODO: This needs improvement, check namespace for non-custom types?
@@ -2019,493 +2033,489 @@ function oneOf(decoderList) {
 // TODO: Dates and types with `toJSON` are not adding the $type field
 
 const Fetch_types = function (__exports) {
-  const HttpRequestHeaders = __exports.HttpRequestHeaders = class HttpRequestHeaders {
-    constructor(tag, data) {
-      this.tag = tag | 0;
-      this.data = data;
-    }
+        const HttpRequestHeaders = __exports.HttpRequestHeaders = class HttpRequestHeaders {
+                constructor(tag, data) {
+                        this.tag = tag | 0;
+                        this.data = data;
+                }
 
-    [FSymbol.reflection]() {
-      return {
-        type: "Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders",
-        interfaces: ["FSharpUnion", "System.IEquatable"],
-        cases: [["Accept", "string"], ["Accept-Charset", "string"], ["Accept-Encoding", "string"], ["Accept-Language", "string"], ["Accept-Datetime", "string"], ["Authorization", "string"], ["Cache-Control", "string"], ["Connection", "string"], ["Cookie", "string"], ["Content-Length", "string"], ["Content-MD5", "string"], ["Content-Type", "string"], ["Date", "string"], ["Expect", "string"], ["Forwarded", "string"], ["From", "string"], ["Host", "string"], ["If-Match", "string"], ["If-Modified-Since", "string"], ["If-None-Match", "string"], ["If-Range", "string"], ["If-Unmodified-Since", "string"], ["Max-Forwards", "number"], ["Origin", "string"], ["Pragma", "string"], ["Proxy-Authorization", "string"], ["Range", "string"], ["Referer", "string"], ["SOAPAction", "string"], ["TE", "string"], ["User-Agent", "string"], ["Upgrade", "string"], ["Via", "string"], ["Warning", "string"], ["X-Requested-With", "string"], ["DNT", "string"], ["X-Forwarded-For", "string"], ["X-Forwarded-Host", "string"], ["X-Forwarded-Proto", "string"], ["Front-End-Https", "string"], ["X-Http-Method-Override", "string"], ["X-ATT-DeviceId", "string"], ["X-Wap-Profile", "string"], ["Proxy-Connection", "string"], ["X-UIDH", "string"], ["X-Csrf-Token", "string"], ["Custom", "string", Any]]
-      };
-    }
+                [FSymbol.reflection]() {
+                        return {
+                                type: "Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders",
+                                interfaces: ["FSharpUnion", "System.IEquatable"],
+                                cases: [["Accept", "string"], ["Accept-Charset", "string"], ["Accept-Encoding", "string"], ["Accept-Language", "string"], ["Accept-Datetime", "string"], ["Authorization", "string"], ["Cache-Control", "string"], ["Connection", "string"], ["Cookie", "string"], ["Content-Length", "string"], ["Content-MD5", "string"], ["Content-Type", "string"], ["Date", "string"], ["Expect", "string"], ["Forwarded", "string"], ["From", "string"], ["Host", "string"], ["If-Match", "string"], ["If-Modified-Since", "string"], ["If-None-Match", "string"], ["If-Range", "string"], ["If-Unmodified-Since", "string"], ["Max-Forwards", "number"], ["Origin", "string"], ["Pragma", "string"], ["Proxy-Authorization", "string"], ["Range", "string"], ["Referer", "string"], ["SOAPAction", "string"], ["TE", "string"], ["User-Agent", "string"], ["Upgrade", "string"], ["Via", "string"], ["Warning", "string"], ["X-Requested-With", "string"], ["DNT", "string"], ["X-Forwarded-For", "string"], ["X-Forwarded-Host", "string"], ["X-Forwarded-Proto", "string"], ["Front-End-Https", "string"], ["X-Http-Method-Override", "string"], ["X-ATT-DeviceId", "string"], ["X-Wap-Profile", "string"], ["Proxy-Connection", "string"], ["X-UIDH", "string"], ["X-Csrf-Token", "string"], ["Custom", "string", Any]]
+                        };
+                }
 
-    Equals(other) {
-      return this === other || this.tag === other.tag && equals(this.data, other.data);
-    }
+                Equals(other) {
+                        return this === other || this.tag === other.tag && equals(this.data, other.data);
+                }
 
-  };
-  setType("Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders", HttpRequestHeaders);
-  const RequestProperties = __exports.RequestProperties = class RequestProperties {
-    constructor(tag, data) {
-      this.tag = tag | 0;
-      this.data = data;
-    }
+        };
+        setType("Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders", HttpRequestHeaders);
+        const RequestProperties = __exports.RequestProperties = class RequestProperties {
+                constructor(tag, data) {
+                        this.tag = tag | 0;
+                        this.data = data;
+                }
 
-    [FSymbol.reflection]() {
-      return {
-        type: "Fable.PowerPack.Fetch.Fetch_types.RequestProperties",
-        interfaces: ["FSharpUnion", "System.IEquatable"],
-        cases: [["Method", "string"], ["Headers", Interface("Fable.PowerPack.Fetch.Fetch_types.IHttpRequestHeaders")], ["Body", Any], ["Mode", "string"], ["Credentials", "string"], ["Cache", "string"]]
-      };
-    }
+                [FSymbol.reflection]() {
+                        return {
+                                type: "Fable.PowerPack.Fetch.Fetch_types.RequestProperties",
+                                interfaces: ["FSharpUnion", "System.IEquatable"],
+                                cases: [["Method", "string"], ["Headers", Interface("Fable.PowerPack.Fetch.Fetch_types.IHttpRequestHeaders")], ["Body", Any], ["Mode", "string"], ["Credentials", "string"], ["Cache", "string"]]
+                        };
+                }
 
-    Equals(other) {
-      return this === other || this.tag === other.tag && equals(this.data, other.data);
-    }
+                Equals(other) {
+                        return this === other || this.tag === other.tag && equals(this.data, other.data);
+                }
 
-  };
-  setType("Fable.PowerPack.Fetch.Fetch_types.RequestProperties", RequestProperties);
-  return __exports;
+        };
+        setType("Fable.PowerPack.Fetch.Fetch_types.RequestProperties", RequestProperties);
+        return __exports;
 }({});
 
 function object(fields) {
-  return fold$1(function (o, tupledArg) {
-    o[tupledArg[0]] = tupledArg[1];
-    return o;
-  }, {}, fields);
+    return fold$1(function (o, tupledArg) {
+        o[tupledArg[0]] = tupledArg[1];
+        return o;
+    }, {}, fields);
 }
 function string(x) {
-  return x;
+    return x;
 }
 
 const PromiseResult = function (__exports) {
-  const andThen = __exports.andThen = function (func, promiseResult) {
-    return function (builder_) {
-      return builder_.Delay(function () {
-        return promiseResult.then(function (_arg1) {
-          return (_arg1.tag === 0 ? func(_arg1.data) : function (builder__1) {
-            return builder__1.Delay(function () {
-              return Promise.resolve(new Result$1(1, _arg1.data));
+    const andThen = __exports.andThen = function (func, promiseResult) {
+        return function (builder_) {
+            return builder_.Delay(function () {
+                return promiseResult.then(function (_arg1) {
+                    return (_arg1.tag === 0 ? func(_arg1.data) : function (builder__1) {
+                        return builder__1.Delay(function () {
+                            return Promise.resolve(new Result$1(1, _arg1.data));
+                        });
+                    }(PromiseImpl.promise)).then(function (_arg2) {
+                        return Promise.resolve(_arg2);
+                    });
+                });
             });
-          }(PromiseImpl.promise)).then(function (_arg2) {
-            return Promise.resolve(_arg2);
-          });
-        });
-      });
-    }(PromiseImpl.promise);
-  };
+        }(PromiseImpl.promise);
+    };
 
-  const result = __exports.result = function (value) {
-    return function (builder_) {
-      return builder_.Delay(function () {
-        return Promise.resolve(new Result$1(0, value));
-      });
-    }(PromiseImpl.promise);
-  };
+    const result = __exports.result = function (value) {
+        return function (builder_) {
+            return builder_.Delay(function () {
+                return Promise.resolve(new Result$1(0, value));
+            });
+        }(PromiseImpl.promise);
+    };
 
-  const Builder = __exports.Builder = class Builder {
-    [FSymbol.reflection]() {
-      return {
-        type: "Fable.EdIlyin.Core.PromiseResult.Builder",
-        properties: {}
-      };
-    }
+    const Builder = __exports.Builder = class Builder {
+        [FSymbol.reflection]() {
+            return {
+                type: "Fable.EdIlyin.Core.PromiseResult.Builder",
+                properties: {}
+            };
+        }
 
-    constructor() {}
+        constructor() {}
 
-    Bind(m, f) {
-      return andThen(f, m);
-    }
+        Bind(m, f) {
+            return andThen(f, m);
+        }
 
-    Return(m) {
-      return result(m);
-    }
+        Return(m) {
+            return result(m);
+        }
 
-  };
-  setType("Fable.EdIlyin.Core.PromiseResult.Builder", Builder);
+    };
+    setType("Fable.EdIlyin.Core.PromiseResult.Builder", Builder);
 
-  const mapError$$1 = __exports.mapError = function (func, promiseResult) {
-    return function (builder_) {
-      return builder_.Delay(function () {
-        return promiseResult.then(function (_arg1) {
-          return Promise.resolve(_arg1.tag === 1 ? new Result$1(1, func(_arg1.data)) : new Result$1(0, _arg1.data));
-        });
-      });
-    }(PromiseImpl.promise);
-  };
+    const mapError$$1 = __exports.mapError = function (func, promiseResult) {
+        return function (builder_) {
+            return builder_.Delay(function () {
+                return promiseResult.then(function (_arg1) {
+                    return Promise.resolve(_arg1.tag === 1 ? new Result$1(1, func(_arg1.data)) : new Result$1(0, _arg1.data));
+                });
+            });
+        }(PromiseImpl.promise);
+    };
 
-  return __exports;
+    return __exports;
 }({});
 const PromiseResultAutoOpen = function (__exports) {
-  const promiseResult = __exports.promiseResult = new PromiseResult.Builder();
-  return __exports;
+    const promiseResult = __exports.promiseResult = new PromiseResult.Builder();
+    return __exports;
 }({});
 
 function decodeValue(decoder, jsonValue) {
-  return decode(decoder, jsonValue);
+    return decode(decoder, jsonValue);
 }
 function decodeString(decoder, jsonString) {
-  const pojo = JSON.parse(jsonString);
-  return decodeValue(decoder, pojo);
+    const pojo = JSON.parse(jsonString);
+    return decodeValue(decoder, pojo);
 }
 const value = primitive("a POJO", function (arg0) {
-  return new Result$1(0, arg0);
+    return new Result$1(0, arg0);
 });
 function field(name, decoder) {
-  const label = toText(printf("%s field '%s'"))(getLabel(decoder), name);
-  return primitive(label, function (o) {
-    const matchValue = Object.prototype.hasOwnProperty.call(o, name);
+    const label = toText(printf("%s field '%s'"))(getLabel(decoder), name);
+    return primitive(label, function (o) {
+        const matchValue = Object.prototype.hasOwnProperty.call(o, name);
 
-    if (matchValue) {
-      return function (input) {
-        return run(decoder, input);
-      }(o[name]);
-    } else {
-      return expectingButGot(label, o);
-    }
-  });
+        if (matchValue) {
+            return function (input) {
+                return run(decoder, input);
+            }(o[name]);
+        } else {
+            return expectingButGot(label, o);
+        }
+    });
 }
 
 const bool$1 = primitive("a Bool", function (o) {
-  return typeof o === "boolean" ? new Result$1(0, o) : expectingButGot("a Bool", o);
+    return typeof o === "boolean" ? new Result$1(0, o) : expectingButGot("a Bool", o);
 });
 const uint16$1 = primitive("an UInt16", function (o) {
-  return (value => {
-    if (typeof value !== "number") {
-      return false;
-    }
+    return (value => {
+        if (typeof value !== "number") {
+            return false;
+        }
 
-    
+        
 
-    if (0 <= value && value <= 65535 && (value | 0) === value) {
-      return true;
-    }
+        if (0 <= value && value <= 65535 && (value | 0) === value) {
+            return true;
+        }
 
-    if (isFinite(value) && !(value % 1)) {
-      return true;
-    }
+        if (isFinite(value) && !(value % 1)) {
+            return true;
+        }
 
-    
-    return false;
-  })(o) ? new Result$1(0, o) : expectingButGot("an UInt16", o);
+        
+        return false;
+    })(o) ? new Result$1(0, o) : expectingButGot("an UInt16", o);
 });
 const uint32$1 = primitive("an UInt32", function (o) {
-  return (value => {
-    if (typeof value !== "number") {
-      return false;
-    }
+    return (value => {
+        if (typeof value !== "number") {
+            return false;
+        }
 
-    
+        
 
-    if (0 <= value && value <= 4294967295 && (value | 0) === value) {
-      return true;
-    }
+        if (0 <= value && value <= 4294967295 && (value | 0) === value) {
+            return true;
+        }
 
-    if (isFinite(value) && !(value % 1)) {
-      return true;
-    }
+        if (isFinite(value) && !(value % 1)) {
+            return true;
+        }
 
-    
-    return false;
-  })(o) ? new Result$1(0, o) : expectingButGot("an UInt32", o);
+        
+        return false;
+    })(o) ? new Result$1(0, o) : expectingButGot("an UInt32", o);
 });
 const uint64$1 = primitive("an UInt64", function (o) {
-  return (value => {
-    if (typeof value !== "number") {
-      return false;
-    }
+    return (value => {
+        if (typeof value !== "number") {
+            return false;
+        }
 
-    
+        
 
-    if (0 <= value && value <= 18446744073709551615 && (value | 0) === value) {
-      return true;
-    }
+        if (0 <= value && value <= 18446744073709551615 && (value | 0) === value) {
+            return true;
+        }
 
-    if (isFinite(value) && !(value % 1)) {
-      return true;
-    }
+        if (isFinite(value) && !(value % 1)) {
+            return true;
+        }
 
-    
-    return false;
-  })(o) ? new Result$1(0, o) : expectingButGot("an UInt64", o);
+        
+        return false;
+    })(o) ? new Result$1(0, o) : expectingButGot("an UInt64", o);
 });
 const int16$1 = primitive("an Int16", function (o) {
-  return (value => {
-    if (typeof value !== "number") {
-      return false;
-    }
+    return (value => {
+        if (typeof value !== "number") {
+            return false;
+        }
 
-    
+        
 
-    if (-32768 <= value && value <= 32767 && (value | 0) === value) {
-      return true;
-    }
+        if (-32768 <= value && value <= 32767 && (value | 0) === value) {
+            return true;
+        }
 
-    if (isFinite(value) && !(value % 1)) {
-      return true;
-    }
+        if (isFinite(value) && !(value % 1)) {
+            return true;
+        }
 
-    
-    return false;
-  })(o) ? new Result$1(0, o) : expectingButGot("an Int16", o);
+        
+        return false;
+    })(o) ? new Result$1(0, o) : expectingButGot("an Int16", o);
 });
 
 const _int$1 = primitive("an Int", function (o) {
-  return (value => {
-    if (typeof value !== "number") {
-      return false;
-    }
+    return (value => {
+        if (typeof value !== "number") {
+            return false;
+        }
 
-    
+        
 
-    if (-2147483648 <= value && value <= 2147483647 && (value | 0) === value) {
-      return true;
-    }
+        if (-2147483648 <= value && value <= 2147483647 && (value | 0) === value) {
+            return true;
+        }
 
-    if (isFinite(value) && !(value % 1)) {
-      return true;
-    }
+        if (isFinite(value) && !(value % 1)) {
+            return true;
+        }
 
-    
-    return false;
-  })(o) ? new Result$1(0, o) : expectingButGot("an Int", o);
+        
+        return false;
+    })(o) ? new Result$1(0, o) : expectingButGot("an Int", o);
 });
 
 const int64$1 = primitive("an Int64", function (o) {
-  return (value => {
-    if (typeof value !== "number") {
-      return false;
-    }
+    return (value => {
+        if (typeof value !== "number") {
+            return false;
+        }
 
-    
+        
 
-    if (-9223372036854775808 <= value && value <= 9223372032559808512 && (value | 0) === value) {
-      return true;
-    }
+        if (-9223372036854775808 <= value && value <= 9223372032559808512 && (value | 0) === value) {
+            return true;
+        }
 
-    if (isFinite(value) && !(value % 1)) {
-      return true;
-    }
+        if (isFinite(value) && !(value % 1)) {
+            return true;
+        }
 
-    
-    return false;
-  })(o) ? new Result$1(0, o) : expectingButGot("an Int64", o);
+        
+        return false;
+    })(o) ? new Result$1(0, o) : expectingButGot("an Int64", o);
 });
 
 const _float$1 = primitive("a Float", function (o) {
-  return typeof o === "number" ? new Result$1(0, o) : expectingButGot("a Float", o);
+    return typeof o === "number" ? new Result$1(0, o) : expectingButGot("a Float", o);
 });
 
 function dict(decoder) {
-  const label = toText(printf("maping of string to %s"))(getLabel(decoder));
-  return andThen(function (o) {
-    return fromResult(map(function (elements) {
-      return create$1(elements, new Comparer(comparePrimitives));
-    }, Result$$1.combineList(map$1(function (tupledArg) {
-      return map(function (y) {
-        return tuple(tupledArg[0], y);
-      }, decode(decoder, tupledArg[1]));
-    }, Object.entries(o)))));
-  }, value);
+    const label = toText(printf("maping of string to %s"))(getLabel(decoder));
+    return andThen(function (o) {
+        return fromResult(map(function (elements) {
+            return create$1(elements, new Comparer(comparePrimitives));
+        }, Result$$1.combineList(map$1(function (tupledArg) {
+            return map(function (y) {
+                return tuple(tupledArg[0], y);
+            }, decode(decoder, tupledArg[1]));
+        }, Object.entries(o)))));
+    }, value);
 }
 const dateTime = map$5(function (i) {
-  const start = create(1970, 1, 1, 0, 0, 0, 0, 1);
-  return addSeconds(start, i);
+    const start = create(1970, 1, 1, 0, 0, 0, 0, 1);
+    return addSeconds(start, i);
 }, _float$1);
 const string$1 = primitive("a String", function (o) {
-  return typeof o === "string" ? new Result$1(0, o) : function (got) {
-    return expectingButGot("a String", got);
-  }(o);
+    return typeof o === "string" ? new Result$1(0, o) : function (got) {
+        return expectingButGot("a String", got);
+    }(o);
 });
 
 
 
 function index(i, decoder) {
-  return primitive("an array", function (array_1) {
-    return array_1 instanceof Array ? i >= array_1.length ? expectingButGot(toText(printf("a longer array. Need index %i"))(i), array_1) : run(decoder, array_1[i]) : expectingButGot("an array", array_1);
-  });
+    return primitive("an array", function (array_1) {
+        return array_1 instanceof Array ? i >= array_1.length ? expectingButGot(toText(printf("a longer array. Need index %i"))(i), array_1) : run(decoder, array_1[i]) : expectingButGot("an array", array_1);
+    });
 }
 function Null$1(a) {
-  return primitive("a Null", function (o) {
-    return o === null ? new Result$1(0, a) : expectingButGot("a Null", o);
-  });
+    return primitive("a Null", function (o) {
+        return o === null ? new Result$1(0, a) : expectingButGot("a Null", o);
+    });
 }
 function nullable(decoder) {
-  return oneOf(ofArray([Null$1(null), map$5(function (arg0) {
-    return makeSome(arg0);
-  }, decoder)]));
+    return oneOf(ofArray([Null$1(null), map$5(makeSome, decoder)]));
 }
 
 es6Promise.polyfill();
 
 function _fetch(url, properties, decoder) {
-  return _Promise.result(function (builder_) {
-    return builder_.Delay(function () {
-      return fetch(url, createObj(properties, 1)).then(function (_arg1) {
-        return Result$$1.unpack($var2 => function (arg00) {
-          return Promise.resolve(arg00);
-        }(function (arg0) {
-          return new Result$1(1, arg0);
-        }($var2)), function (x_1) {
-          return x_1;
-        }, decode(decoder, _arg1)).then(function (_arg2) {
-          return Promise.resolve(_arg2);
+    return _Promise.result(function (builder_) {
+        return builder_.Delay(function () {
+            return fetch(url, createObj(properties, 1)).then(function (_arg1) {
+                return Result$$1.unpack($var2 => function (arg00) {
+                    return Promise.resolve(arg00);
+                }(function (arg0) {
+                    return new Result$1(1, arg0);
+                }($var2)), function (x_1) {
+                    return x_1;
+                }, decode(decoder, _arg1)).then(function (_arg2) {
+                    return Promise.resolve(_arg2);
+                });
+            });
         });
-      });
-    });
-  }(PromiseImpl.promise)).then($var1 => Result$$1.andThen(function (x) {
-    return x;
-  }, mapError(function (e) {
-    return e.message;
-  }, $var1)));
+    }(PromiseImpl.promise)).then($var1 => Result$$1.andThen(function (x) {
+        return x;
+    }, mapError(function (e) {
+        return e.message;
+    }, $var1)));
 }
 
 function get(url, headers, decoder) {
-  const properties = ofArray([new Fetch_types.RequestProperties(0, "GET"), new Fetch_types.RequestProperties(1, createObj(headers, 0))]);
-  return _fetch(url, properties, decoder);
+    const properties = ofArray([new Fetch_types.RequestProperties(0, "GET"), new Fetch_types.RequestProperties(1, createObj(headers, 0))]);
+    return _fetch(url, properties, decoder);
 }
 
 
 const text = primitive("a Text", function (response) {
-  return new Result$1(0, PromiseResult.mapError(function (e) {
-    return e.message;
-  }, _Promise.result(response.text())));
+    return new Result$1(0, PromiseResult.mapError(function (e) {
+        return e.message;
+    }, _Promise.result(response.text())));
 });
 function json(decoder) {
-  return primitive("an JSON", function (response) {
-    return new Result$1(0, function (builder_) {
-      return builder_.Delay(function () {
-        return response.json().then(function (_arg1) {
-          const result$$1 = decodeValue(decoder, _arg1);
-          return Promise.resolve(result$$1);
-        });
-      });
-    }(PromiseImpl.promise));
-  });
+    return primitive("an JSON", function (response) {
+        return new Result$1(0, function (builder_) {
+            return builder_.Delay(function () {
+                return response.json().then(function (_arg1) {
+                    const result$$1 = decodeValue(decoder, _arg1);
+                    return Promise.resolve(result$$1);
+                });
+            });
+        }(PromiseImpl.promise));
+    });
 }
 const response = primitive("an HTTP response", $var4 => function (arg0_1) {
-  return new Result$1(0, arg0_1);
+    return new Result$1(0, arg0_1);
 }(($var3 => function (arg00) {
-  return Promise.resolve(arg00);
+    return Promise.resolve(arg00);
 }(function (arg0) {
-  return new Result$1(0, arg0);
+    return new Result$1(0, arg0);
 }($var3)))($var4)));
 
 function equal(expected, actual) {
-  const assert_ = assert;
-  assert_.deepStrictEqual(actual, expected);
+    const assert_ = assert;
+    assert_.deepStrictEqual(actual, expected);
 }
 it("fetch: json echo", function () {
-  return function (builder_) {
-    return builder_.Delay(function () {
-      return get("http://echo.jsontest.com/abba/babba", new List$1(), json(value)).then(function (_arg1) {
-        const result = equal(new Result$1(0, object(ofArray([["abba", string("babba")]]))), _arg1);
-        return Promise.resolve(null);
-      });
-    });
-  }(PromiseImpl.promise);
+    return function (builder_) {
+        return builder_.Delay(function () {
+            return get("http://echo.jsontest.com/abba/babba", new List$1(), json(value)).then(function (_arg1) {
+                const result = equal(new Result$1(0, object(ofArray([["abba", string("babba")]]))), _arg1);
+                return Promise.resolve(null);
+            });
+        });
+    }(PromiseImpl.promise);
 });
 it("fetch: wrong address", function () {
-  return function (builder__1) {
-    return builder__1.Delay(function () {
-      return get("http://echoa.jsontest.com", new List$1(), text).then(function (_arg1_1) {
-        const result_1 = equal(new Result$1(1, "request to http://echoa.jsontest.com failed, reason: getaddrinfo ENOTFOUND echoa.jsontest.com echoa.jsontest.com:80"), _arg1_1);
-        return Promise.resolve(null);
-      });
-    });
-  }(PromiseImpl.promise);
+    return function (builder__1) {
+        return builder__1.Delay(function () {
+            return get("http://echoa.jsontest.com", new List$1(), text).then(function (_arg1_1) {
+                const result_1 = equal(new Result$1(1, "request to http://echoa.jsontest.com failed, reason: getaddrinfo ENOTFOUND echoa.jsontest.com echoa.jsontest.com:80"), _arg1_1);
+                return Promise.resolve(null);
+            });
+        });
+    }(PromiseImpl.promise);
 });
 it("fetch: json echo with decoder", function () {
-  return function (builder__2) {
-    return builder__2.Delay(function () {
-      return get("http://echo.jsontest.com/abba/babba", new List$1(), json(field("abba", string$1))).then(function (_arg1_2) {
-        const result_2 = equal(new Result$1(0, "babba"), _arg1_2);
-        return Promise.resolve(null);
-      });
-    });
-  }(PromiseImpl.promise);
+    return function (builder__2) {
+        return builder__2.Delay(function () {
+            return get("http://echo.jsontest.com/abba/babba", new List$1(), json(field("abba", string$1))).then(function (_arg1_2) {
+                const result_2 = equal(new Result$1(0, "babba"), _arg1_2);
+                return Promise.resolve(null);
+            });
+        });
+    }(PromiseImpl.promise);
 });
 it("fetch: json echo with decoder: error", function () {
-  return function (builder__3) {
-    return builder__3.Delay(function () {
-      return get("http://echo.jsontest.com/abba/babba", new List$1(), json(field("abbax", string$1))).then(function (_arg1_3) {
-        const result_3 = equal(new Result$1(1, "Expecting a String field 'abbax', but instead got: \"{\\\"abba\\\":\\\"babba\\\"}\""), _arg1_3);
-        return Promise.resolve(null);
-      });
-    });
-  }(PromiseImpl.promise);
+    return function (builder__3) {
+        return builder__3.Delay(function () {
+            return get("http://echo.jsontest.com/abba/babba", new List$1(), json(field("abbax", string$1))).then(function (_arg1_3) {
+                const result_3 = equal(new Result$1(1, "Expecting a String field 'abbax', but instead got: \"{\\\"abba\\\":\\\"babba\\\"}\""), _arg1_3);
+                return Promise.resolve(null);
+            });
+        });
+    }(PromiseImpl.promise);
 });
 
 it("result: computation expression: return", function () {
-  const assert_ = assert;
-  assert_.deepStrictEqual(function (builder_) {
-    return builder_.Bind(new Result$1(0, 42), function (_arg1) {
-      return builder_.Return(_arg1);
-    });
-  }(ResultAutoOpen.result), new Result$1(0, 42));
+    const assert_ = assert;
+    assert_.deepStrictEqual(function (builder_) {
+        return builder_.Bind(new Result$1(0, 42), builder_.Return.bind(builder_));
+    }(ResultAutoOpen.result), new Result$1(0, 42));
 });
 it("result: computation expression: return from", function () {
-  const assert__1 = assert;
-  assert__1.deepStrictEqual(function (builder__1) {
-    const r = new Result$1(0, 42);
-    return builder__1.ReturnFrom(r);
-  }(ResultAutoOpen.result), new Result$1(0, 42));
+    const assert__1 = assert;
+    assert__1.deepStrictEqual(function (builder__1) {
+        const r = new Result$1(0, 42);
+        return builder__1.ReturnFrom(r);
+    }(ResultAutoOpen.result), new Result$1(0, 42));
 });
 it("result: computation expression: zero", function () {
-  const assert__2 = assert;
-  assert__2.deepStrictEqual(function (builder__2) {
-    toText(printf("%i"))(42);
-    return builder__2.Zero();
-  }(ResultAutoOpen.result), new Result$1(0, null));
+    const assert__2 = assert;
+    assert__2.deepStrictEqual(function (builder__2) {
+        toText(printf("%i"))(42);
+        return builder__2.Zero();
+    }(ResultAutoOpen.result), new Result$1(0, null));
 });
 
 class queue {
-  constructor(tag, data) {
-    this.tag = tag | 0;
-    this.data = data;
-  }
+    constructor(tag, data) {
+        this.tag = tag | 0;
+        this.data = data;
+    }
 
-  [FSymbol.reflection]() {
-    return {
-      type: "Fable.EdIlyin.Core.Queue.queue",
-      interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
-      cases: [["Queue", makeGeneric(List$1, {
-        T: GenericParam("a")
-      }), makeGeneric(List$1, {
-        T: GenericParam("a")
-      })]]
-    };
-  }
+    [FSymbol.reflection]() {
+        return {
+            type: "Fable.EdIlyin.Core.Queue.queue",
+            interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
+            cases: [["Queue", makeGeneric(List$1, {
+                T: GenericParam("a")
+            }), makeGeneric(List$1, {
+                T: GenericParam("a")
+            })]]
+        };
+    }
 
-  Equals(other) {
-    return this === other || this.tag === other.tag && equals(this.data, other.data);
-  }
+    Equals(other) {
+        return this === other || this.tag === other.tag && equals(this.data, other.data);
+    }
 
-  CompareTo(other) {
-    return compareUnions(this, other) | 0;
-  }
+    CompareTo(other) {
+        return compareUnions(this, other) | 0;
+    }
 
 }
 setType("Fable.EdIlyin.Core.Queue.queue", queue);
 function empty$1() {
-  return new queue(0, [new List$1(), new List$1()]);
+    return new queue(0, [new List$1(), new List$1()]);
 }
 
 function push(_arg1, item) {
-  return new queue(0, [_arg1.data[0], new List$1(item, _arg1.data[1])]);
+    return new queue(0, [_arg1.data[0], new List$1(item, _arg1.data[1])]);
 }
 function ofList$1(list) {
-  return new queue(0, [list, new List$1()]);
+    return new queue(0, [list, new List$1()]);
 }
 
 function pull(_arg1) {
-  pull: while (true) {
-    if (_arg1.data[0].tail != null) {
-      return [_arg1.data[0].head, new queue(0, [_arg1.data[0].tail, _arg1.data[1]])];
-    } else if (_arg1.data[1].tail == null) {
-      return null;
-    } else {
-      _arg1 = ofList$1(reverse(_arg1.data[1]));
-      continue pull;
+    pull: while (true) {
+        if (_arg1.data[0].tail != null) {
+            return [_arg1.data[0].head, new queue(0, [_arg1.data[0].tail, _arg1.data[1]])];
+        } else if (_arg1.data[1].tail == null) {
+            return null;
+        } else {
+            _arg1 = ofList$1(reverse(_arg1.data[1]));
+            continue pull;
+        }
     }
-  }
 }
 function length(_arg1) {
-  return _arg1.data[0].length + _arg1.data[1].length | 0;
+    return _arg1.data[0].length + _arg1.data[1].length | 0;
 }
 
 const parseRadix = /^\s*([\+\-])?(0[xob])?([0-9a-fA-F]+)\s*$/;
@@ -3684,9 +3694,7 @@ function op_GreaterGreaterEquals(asyn, func) {
   return singleton$3.Bind(asyn, func);
 }
 function map$7(func, asyn) {
-  return op_GreaterGreaterEquals(asyn, $var1 => function (arg00) {
-    return singleton$3.Return(arg00);
-  }(func($var1)));
+  return op_GreaterGreaterEquals(asyn, $var1 => singleton$3.Return.bind(singleton$3)(func($var1)));
 }
 function op_BarGreaterGreater(asyn, func) {
   return map$7(func, asyn);
@@ -3836,289 +3844,270 @@ function start$2(body, cancellationToken$$1) {
 }
 
 class Model {
-  constructor(quantity, millisecond$$1, queue$$1) {
-    this.quantity = quantity | 0;
-    this.millisecond = millisecond$$1 | 0;
-    this.queue = queue$$1;
-  }
+    constructor(quantity, millisecond$$1, queue$$1) {
+        this.quantity = quantity | 0;
+        this.millisecond = millisecond$$1 | 0;
+        this.queue = queue$$1;
+    }
 
-  [FSymbol.reflection]() {
-    return {
-      type: "Fable.EdIlyin.Core.Throttle.Model",
-      interfaces: ["FSharpRecord", "System.IEquatable", "System.IComparable"],
-      properties: {
-        quantity: "number",
-        millisecond: "number",
-        queue: makeGeneric(queue, {
-          a: "number"
-        })
-      }
-    };
-  }
+    [FSymbol.reflection]() {
+        return {
+            type: "Fable.EdIlyin.Core.Throttle.Model",
+            interfaces: ["FSharpRecord", "System.IEquatable", "System.IComparable"],
+            properties: {
+                quantity: "number",
+                millisecond: "number",
+                queue: makeGeneric(queue, {
+                    a: "number"
+                })
+            }
+        };
+    }
 
-  Equals(other) {
-    return equalsRecords(this, other);
-  }
+    Equals(other) {
+        return equalsRecords(this, other);
+    }
 
-  CompareTo(other) {
-    return compareRecords(this, other) | 0;
-  }
+    CompareTo(other) {
+        return compareRecords(this, other) | 0;
+    }
 
 }
 setType("Fable.EdIlyin.Core.Throttle.Model", Model);
 class Msg {
-  constructor(tag, data) {
-    this.tag = tag | 0;
-    this.data = data;
-  }
+    constructor(tag, data) {
+        this.tag = tag | 0;
+        this.data = data;
+    }
 
-  [FSymbol.reflection]() {
-    return {
-      type: "Fable.EdIlyin.Core.Throttle.Msg",
-      interfaces: ["FSharpUnion"],
-      cases: [["Die"], ["Fetch", FableFunction([Unit, GenericParam("a")]), Any]]
-    };
-  }
+    [FSymbol.reflection]() {
+        return {
+            type: "Fable.EdIlyin.Core.Throttle.Msg",
+            interfaces: ["FSharpUnion"],
+            cases: [["Die"], ["Fetch", FableFunction([Unit, GenericParam("a")]), Any]]
+        };
+    }
 
 }
 setType("Fable.EdIlyin.Core.Throttle.Msg", Msg);
 function nowMilliseconds() {
-  var copyOfStruct;
-  const milliseconds$$1 = create$5((copyOfStruct = now(), unixEpochMillisecondsToTicks(copyOfStruct.getTime(), offset(copyOfStruct))));
-  return milliseconds$$1;
+    var copyOfStruct;
+    const milliseconds$$1 = create$5((copyOfStruct = now(), unixEpochMillisecondsToTicks(copyOfStruct.getTime(), offset(copyOfStruct))));
+    return milliseconds$$1;
 }
 
 function execute(func, channel, model) {
-  (function (arg00) {
-    channel.reply(arg00);
-  })(func());
-
-  const queue$$1 = push(model.queue, nowMilliseconds());
-  return new Model(model.quantity, model.millisecond, queue$$1);
+    channel.reply.bind(channel)(func());
+    const queue$$1 = push(model.queue, nowMilliseconds());
+    return new Model(model.quantity, model.millisecond, queue$$1);
 }
 
 function _fetch$2(model, func, channel) {
-  return map$7(function (model_1) {
-    return execute(func, channel, model_1);
-  }, (() => {
-    const matchValue = length(model.queue) | 0;
+    return map$7(function (model_1) {
+        return execute(func, channel, model_1);
+    }, (() => {
+        const matchValue = length(model.queue) | 0;
 
-    if (matchValue < model.quantity) {
-      return singleton$3.Return(model);
-    } else {
-      const matchValue_1 = pull(model.queue);
+        if (matchValue < model.quantity) {
+            return singleton$3.Return(model);
+        } else {
+            const matchValue_1 = pull(model.queue);
 
-      if (matchValue_1 != null) {
-        const was = getValue(matchValue_1)[0];
-        const tail = getValue(matchValue_1)[1];
-        return op_BarGreaterGreater(sleep(model.millisecond - ~~(nowMilliseconds() - was)), function () {
-          return new Model(model.quantity, model.millisecond, tail);
-        });
-      } else {
-        return singleton$3.Return(model);
-      }
-    }
-  })());
+            if (matchValue_1 != null) {
+                const was = getValue(matchValue_1)[0];
+                const tail = getValue(matchValue_1)[1];
+                return op_BarGreaterGreater(sleep(model.millisecond - ~~(nowMilliseconds() - was)), function () {
+                    return new Model(model.quantity, model.millisecond, tail);
+                });
+            } else {
+                return singleton$3.Return(model);
+            }
+        }
+    })());
 }
 
 function body(model, agent) {
-  const loop = function (state) {
-    return op_GreaterGreaterEquals(agent.receive(), function (_arg1) {
-      return _arg1.tag === 1 ? op_GreaterGreaterEquals(_fetch$2(state, _arg1.data[0], _arg1.data[1]), loop) : singleton$3.Zero();
-    });
-  };
+    const loop = function (state) {
+        return op_GreaterGreaterEquals(agent.receive(), function (_arg1) {
+            return _arg1.tag === 1 ? op_GreaterGreaterEquals(_fetch$2(state, _arg1.data[0], _arg1.data[1]), loop) : singleton$3.Zero();
+        });
+    };
 
-  return loop(model);
+    return loop(model);
 }
 
 function start$$1(quantity, millisecond$$1) {
-  var model;
-  return function (arg00) {
-    return start$2(arg00);
-  }((model = new Model(quantity, millisecond$$1, empty$1()), function (agent) {
-    return body(model, agent);
-  }));
+    var model;
+    return start$2((model = new Model(quantity, millisecond$$1, empty$1()), function (agent) {
+        return body(model, agent);
+    }));
 }
 function add$4(throttler, func) {
-  return throttler.postAndAsyncReply(function (channel) {
-    return new Msg(1, [func, channel]);
-  });
+    return throttler.postAndAsyncReply(function (channel) {
+        return new Msg(1, [func, channel]);
+    });
 }
 
 function equal$1(expected, actual) {
-  const assert_ = assert;
-  assert_.deepStrictEqual(actual, expected);
+    const assert_ = assert;
+    assert_.deepStrictEqual(actual, expected);
 }
 it("throttle: simple function", function () {
-  const throttler = start$$1(1, 1000);
+    const throttler = start$$1(1, 1000);
 
-  const func = function () {
-    return 42;
-  };
+    const func = function () {
+        return 42;
+    };
 
-  return function (arg00) {
-    return startAsPromise(arg00);
-  }(function (builder_) {
-    return builder_.Delay(function () {
-      return builder_.Bind(add$4(throttler, func), function (_arg1) {
-        return builder_.Return(equal$1(42, _arg1));
-      });
-    });
-  }(singleton$3));
+    return startAsPromise(function (builder_) {
+        return builder_.Delay(function () {
+            return builder_.Bind(add$4(throttler, func), function (_arg1) {
+                return builder_.Return(equal$1(42, _arg1));
+            });
+        });
+    }(singleton$3));
 });
 it("throttle: async function", function () {
-  const throttler_1 = start$$1(2, 1000);
+    const throttler_1 = start$$1(2, 1000);
 
-  const func_1 = function () {
-    return function (builder__1) {
-      return builder__1.Delay(function () {
-        return builder__1.Return(42);
-      });
-    }(singleton$3);
-  };
+    const func_1 = function () {
+        return function (builder__1) {
+            return builder__1.Delay(function () {
+                return builder__1.Return(42);
+            });
+        }(singleton$3);
+    };
 
-  return function (arg00_1) {
-    return startAsPromise(arg00_1);
-  }(function (builder__2) {
-    return builder__2.Delay(function () {
-      return builder__2.Bind(add$4(throttler_1, func_1), function (_arg1_1) {
-        return builder__2.Bind(_arg1_1, function (_arg2) {
-          return builder__2.Return(equal$1(42, _arg2));
+    return startAsPromise(function (builder__2) {
+        return builder__2.Delay(function () {
+            return builder__2.Bind(add$4(throttler_1, func_1), function (_arg1_1) {
+                return builder__2.Bind(_arg1_1, function (_arg2) {
+                    return builder__2.Return(equal$1(42, _arg2));
+                });
+            });
         });
-      });
-    });
-  }(singleton$3));
+    }(singleton$3));
 });
 function multipleFunTest(func_2, unitVar1) {
-  const throttler_2 = start$$1(3, 100);
-  return function (arg00_2) {
-    return startAsPromise(arg00_2);
-  }(function (builder__3) {
-    return builder__3.Delay(function () {
-      return builder__3.Bind(parallel(initialize(22, function (_arg1_2) {
-        return func_2(function (func_3) {
-          return add$4(throttler_2, func_3);
+    const throttler_2 = start$$1(3, 100);
+    return startAsPromise(function (builder__3) {
+        return builder__3.Delay(function () {
+            return builder__3.Bind(parallel(initialize(22, function (_arg1_2) {
+                return func_2(function (func_3) {
+                    return add$4(throttler_2, func_3);
+                });
+            })), function (_arg1_3) {
+                var loop;
+                const results = map2(function (tupledArg, x) {
+                    return tupledArg[0] <= x ? x <= tupledArg[1] : false;
+                }, (loop = function () {
+                    return delay(function () {
+                        return append$1(singleton$1([0, 0]), delay(function () {
+                            return append$1(singleton$1([0, 10]), delay(function () {
+                                return append$1(singleton$1([90, 110]), delay(loop));
+                            }));
+                        }));
+                    });
+                }, loop()), map$4(function (tupledArg_1) {
+                    return ~~(tupledArg_1[1] - tupledArg_1[0]);
+                }, Array.from(pairwise(_arg1_3)), Int32Array));
+                equal$1(initialize$1(22 - 1, function (_arg2_1) {
+                    return true;
+                }), results);
+                return builder__3.Zero();
+            });
         });
-      })), function (_arg1_3) {
-        var loop;
-        const results = map2(function (tupledArg, x) {
-          return tupledArg[0] <= x ? x <= tupledArg[1] : false;
-        }, (loop = function () {
-          return delay(function () {
-            return append$1(singleton$1([0, 0]), delay(function () {
-              return append$1(singleton$1([0, 10]), delay(function () {
-                return append$1(singleton$1([90, 110]), delay(function () {
-                  return loop();
-                }));
-              }));
-            }));
-          });
-        }, loop()), map$4(function (tupledArg_1) {
-          return ~~(tupledArg_1[1] - tupledArg_1[0]);
-        }, Array.from(pairwise(_arg1_3)), Int32Array));
-        equal$1(initialize$1(22 - 1, function (_arg2_1) {
-          return true;
-        }), results);
-        return builder__3.Zero();
-      });
-    });
-  }(singleton$3));
+    }(singleton$3));
 }
 it("throttle: multiple simple functions", (() => {
-  const func_2 = function (throttle) {
-    return throttle(function () {
-      return nowMilliseconds();
-    });
-  };
+    const func_2 = function (throttle) {
+        return throttle(nowMilliseconds);
+    };
 
-  return function () {
-    return multipleFunTest(func_2, null);
-  };
+    return function () {
+        return multipleFunTest(func_2, null);
+    };
 })());
 it("throttle: multiple async functions", (() => {
-  const func_4 = function (throttle_1) {
-    const func_3 = function () {
-      return function (builder__3) {
-        return builder__3.Delay(function () {
-          return builder__3.Return(nowMilliseconds());
-        });
-      }(singleton$3);
+    const func_4 = function (throttle_1) {
+        const func_3 = function () {
+            return function (builder__3) {
+                return builder__3.Delay(function () {
+                    return builder__3.Return(nowMilliseconds());
+                });
+            }(singleton$3);
+        };
+
+        return function (builder__4) {
+            return builder__4.Delay(function () {
+                return builder__4.Bind(throttle_1(func_3), builder__4.ReturnFrom.bind(builder__4));
+            });
+        }(singleton$3);
     };
 
-    return function (builder__4) {
-      return builder__4.Delay(function () {
-        return builder__4.Bind(throttle_1(func_3), function (_arg1_2) {
-          return builder__4.ReturnFrom(_arg1_2);
-        });
-      });
-    }(singleton$3);
-  };
-
-  return function () {
-    return multipleFunTest(func_4, null);
-  };
+    return function () {
+        return multipleFunTest(func_4, null);
+    };
 })());
 class DifferentResult {
-  constructor(tag, data) {
-    this.tag = tag | 0;
-    this.data = data;
-  }
+    constructor(tag, data) {
+        this.tag = tag | 0;
+        this.data = data;
+    }
 
-  [FSymbol.reflection]() {
-    return {
-      type: "ThrottleTests.DifferentResult",
-      interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
-      cases: [["Int", "number"], ["String", "string"]]
-    };
-  }
+    [FSymbol.reflection]() {
+        return {
+            type: "ThrottleTests.DifferentResult",
+            interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
+            cases: [["Int", "number"], ["String", "string"]]
+        };
+    }
 
-  Equals(other) {
-    return this === other || this.tag === other.tag && equals(this.data, other.data);
-  }
+    Equals(other) {
+        return this === other || this.tag === other.tag && equals(this.data, other.data);
+    }
 
-  CompareTo(other) {
-    return compareUnions(this, other) | 0;
-  }
+    CompareTo(other) {
+        return compareUnions(this, other) | 0;
+    }
 
 }
 setType("ThrottleTests.DifferentResult", DifferentResult);
 it("throttle: couple of different functions", function () {
-  const throttler_2 = start$$1(4, 100);
+    const throttler_2 = start$$1(4, 100);
 
-  const throttle_2 = function (func_5) {
-    return add$4(throttler_2, func_5);
-  };
+    const throttle_2 = function (func_5) {
+        return add$4(throttler_2, func_5);
+    };
 
-  const patternInput = [42, "thirty two"];
+    const patternInput = [42, "thirty two"];
 
-  const func1 = function () {
-    return patternInput[0];
-  };
+    const func1 = function () {
+        return patternInput[0];
+    };
 
-  const func2 = function () {
-    return patternInput[1];
-  };
+    const func2 = function () {
+        return patternInput[1];
+    };
 
-  return function (arg00_2) {
-    return startAsPromise(arg00_2);
-  }(function (builder__5) {
-    return builder__5.Delay(function () {
-      return builder__5.Bind(throttle_2($var1 => function (arg0) {
-        return new DifferentResult(0, arg0);
-      }(func1($var1))), function (_arg1_3) {
-        return builder__5.Bind(throttle_2($var2 => function (arg0_1) {
-          return new DifferentResult(1, arg0_1);
-        }(func2($var2))), function (_arg2_1) {
-          return builder__5.Return(equal$1([new DifferentResult(0, patternInput[0]), new DifferentResult(1, patternInput[1])], [_arg1_3, _arg2_1]));
+    return startAsPromise(function (builder__5) {
+        return builder__5.Delay(function () {
+            return builder__5.Bind(throttle_2($var1 => function (arg0) {
+                return new DifferentResult(0, arg0);
+            }(func1($var1))), function (_arg1_3) {
+                return builder__5.Bind(throttle_2($var2 => function (arg0_1) {
+                    return new DifferentResult(1, arg0_1);
+                }(func2($var2))), function (_arg2_1) {
+                    return builder__5.Return(equal$1([new DifferentResult(0, patternInput[0]), new DifferentResult(1, patternInput[1])], [_arg1_3, _arg2_1]));
+                });
+            });
         });
-      });
-    });
-  }(singleton$3));
+    }(singleton$3));
 });
 
 // TODO does this perfectly match the .NET behavior ?
-function tryParse$4(s, radix, initial) {
-    if (s != null) {
+function tryParse$3(s, radix, initial) {
+    if (s != null && /\S/.test(s)) {
         if (radix === 10) {
             const v = +s;
             if (!Number.isNaN(v)) {
@@ -4126,10 +4115,10 @@ function tryParse$4(s, radix, initial) {
             }
         }
     }
-    return [false, initial];
+    return [false, initial != null ? initial : 0];
 }
-function parse$4(s, radix = 10) {
-    const a = tryParse$4(s, radix, 0);
+function parse$3(s, radix = 10) {
+    const a = tryParse$3(s, radix, 0);
     if (a[0]) {
         return a[1];
     }
@@ -4140,45 +4129,45 @@ function parse$4(s, radix = 10) {
 }
 
 function equal$2(expected, actual) {
-  const assert_ = assert;
-  assert_.deepStrictEqual(actual, expected);
+    const assert_ = assert;
+    assert_.deepStrictEqual(actual, expected);
 }
 it("json decode: null", function () {
-  equal$2(new Result$1(0, true), decodeString(Null$1(true), "null"));
+    equal$2(new Result$1(0, true), decodeString(Null$1(true), "null"));
 });
 it("json decode: nullable int: 42", function () {
-  equal$2(new Result$1(0, 42), decodeString(nullable(_int$1), "42"));
+    equal$2(new Result$1(0, 42), decodeString(nullable(_int$1), "42"));
 });
 it("json decode: nullable int: null", function () {
-  equal$2(new Result$1(0, null), decodeString(nullable(_int$1), "null"));
+    equal$2(new Result$1(0, null), decodeString(nullable(_int$1), "null"));
 });
 it("json decode: index: 42", function () {
-  equal$2(new Result$1(0, 42), decodeString(index(1, _int$1), "[12,42,43]"));
+    equal$2(new Result$1(0, 42), decodeString(index(1, _int$1), "[12,42,43]"));
 });
 it("json decode: index: nullable int: 42", function () {
-  equal$2(new Result$1(0, 42), decodeString(index(1, nullable(_int$1)), "[12,42,43]"));
+    equal$2(new Result$1(0, 42), decodeString(index(1, nullable(_int$1)), "[12,42,43]"));
 });
 it("json decode: index: nullable int: null", function () {
-  equal$2(new Result$1(0, null), decodeString(index(1, nullable(_int$1)), "[12,null,43]"));
+    equal$2(new Result$1(0, null), decodeString(index(1, nullable(_int$1)), "[12,null,43]"));
 });
 it("json decode: index last element", function () {
-  equal$2(new Result$1(0, 43), decodeString(index(2, nullable(_int$1)), "[12,null,43]"));
+    equal$2(new Result$1(0, 43), decodeString(index(2, nullable(_int$1)), "[12,null,43]"));
 });
 it("json decode: index out of length", function () {
-  equal$2(new Result$1(1, "Expecting a longer array. Need index 3, but instead got: \"[12,null,43]\""), decodeString(index(3, nullable(_int$1)), "[12,null,43]"));
+    equal$2(new Result$1(1, "Expecting a longer array. Need index 3, but instead got: \"[12,null,43]\""), decodeString(index(3, nullable(_int$1)), "[12,null,43]"));
 });
 const floatFromString = andThen(function (s) {
-  return fromDecodeResult((() => {
-    try {
-      return new Result$1(0, parse$4(s));
-    } catch (e) {
-      return expectingButGot("a Float in String", s);
-    }
-  })());
+    return fromDecodeResult((() => {
+        try {
+            return new Result$1(0, parse$3(s));
+        } catch (e) {
+            return expectingButGot("a Float in String", s);
+        }
+    })());
 }, string$1);
 it("json decode: wrong field name", function () {
-  equal$2(new Result$1(1, "Expecting a String field 'lowerAsk', but instead got: \"{\\\"last\\\":\\\"0.00007602\\\",\\\"lowestAsk\\\":\\\"0.00007602\\\"}\""), decodeString(field("lowerAsk", floatFromString), "{\"last\":\"0.00007602\",\"lowestAsk\":\"0.00007602\"}"));
+    equal$2(new Result$1(1, "Expecting a String field 'lowerAsk', but instead got: \"{\\\"last\\\":\\\"0.00007602\\\",\\\"lowestAsk\\\":\\\"0.00007602\\\"}\""), decodeString(field("lowerAsk", floatFromString), "{\"last\":\"0.00007602\",\"lowestAsk\":\"0.00007602\"}"));
 });
 it("json decode: dict: wrong field name", function () {
-  equal$2(new Result$1(1, "Expecting a String field 'lowerAsk', but instead got: \"{\\\"a\\\":1,\\\"b\\\":2}\""), decodeString(dict(field("lowerAsk", floatFromString)), "{\"one\":{\"a\":1,\"b\":2},\"two\":{\"a\":2,\"b\":3}}"));
+    equal$2(new Result$1(1, "Expecting a String field 'lowerAsk', but instead got: \"{\\\"a\\\":1,\\\"b\\\":2}\""), decodeString(dict(field("lowerAsk", floatFromString)), "{\"one\":{\"a\":1,\"b\":2},\"two\":{\"a\":2,\"b\":3}}"));
 });

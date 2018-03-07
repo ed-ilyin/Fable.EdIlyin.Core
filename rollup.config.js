@@ -11,6 +11,6 @@ export default {
         file: resolve('build/tests.bundle.js'),
         format: 'cjs'
     },
-    plugins: [fable()],
+    plugins: [fable({})],
     external: ['assert', 'es6-promise', 'isomorphic-fetch'],
 };

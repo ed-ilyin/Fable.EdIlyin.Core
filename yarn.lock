@@ -195,8 +195,8 @@ balanced-match@^1.0.0:
   resolved "https://registry.yarnpkg.com/balanced-match/-/balanced-match-1.0.0.tgz#89b4d199ab2bee49de164ea02b89ce462d71b767"
 
 brace-expansion@^1.1.7:
-  version "1.1.8"
-  resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-1.1.8.tgz#c07b211c7c952ec1f8efd51a77ef0d1d3990a292"
+  version "1.1.11"
+  resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-1.1.11.tgz#3c7fcbf529d87226f3d2f52b966ff5271eb441dd"
   dependencies:
     balanced-match "^1.0.0"
     concat-map "0.0.1"
@@ -268,8 +268,8 @@ encoding@^0.1.11:
     iconv-lite "~0.4.13"
 
 es6-promise@^4.1.1:
-  version "4.1.1"
-  resolved "https://registry.yarnpkg.com/es6-promise/-/es6-promise-4.1.1.tgz#8811e90915d9a0dba36274f0b242dbda78f9c92a"
+  version "4.2.4"
+  resolved "https://registry.yarnpkg.com/es6-promise/-/es6-promise-4.2.4.tgz#dc4221c2b16518760bd8c39a52d8f356fc00ed29"
 
 escape-string-regexp@1.0.5, escape-string-regexp@^1.0.2:
   version "1.0.5"
@@ -302,18 +302,14 @@ extglob@^0.3.1:
     is-extglob "^1.0.0"
 
 fable-loader@^1.1.2:
-  version "1.1.2"
-  resolved "https://registry.yarnpkg.com/fable-loader/-/fable-loader-1.1.2.tgz#b5c435230858158586aedc55449efcae67aed767"
+  version "1.1.6"
+  resolved "https://registry.yarnpkg.com/fable-loader/-/fable-loader-1.1.6.tgz#1392eb2fc78e99770f96df18129d1c447459ee17"
   dependencies:
     fable-utils "^1.0.4"
 
-fable-utils@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/fable-utils/-/fable-utils-1.0.1.tgz#76046b1da137bd3474918532451c1d47651620af"
-
 fable-utils@^1.0.4:
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/fable-utils/-/fable-utils-1.0.4.tgz#3361d044e199d73dc10d5eec7cf6ac7b318c9d13"
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/fable-utils/-/fable-utils-1.0.6.tgz#df4af260a2948b7562e3cbcfa044a3482b5c0573"
 
 filename-regex@^2.0.0:
   version "2.0.1"
@@ -422,8 +418,8 @@ invariant@^2.2.0, invariant@^2.2.2:
     loose-envify "^1.0.0"
 
 is-buffer@^1.1.5:
-  version "1.1.5"
-  resolved "https://registry.yarnpkg.com/is-buffer/-/is-buffer-1.1.5.tgz#1f3b26ef613b214b88cbca23cc6c01d87961eecc"
+  version "1.1.6"
+  resolved "https://registry.yarnpkg.com/is-buffer/-/is-buffer-1.1.6.tgz#efaa2ea9daa0d7ab2ea13a97b2b8ad51fefbe8be"
 
 is-dotfile@^1.0.0:
   version "1.0.3"
@@ -616,8 +612,8 @@ mkdirp@0.5.1, mkdirp@^0.5.1:
     minimist "0.0.8"
 
 mocha@^3.5.1:
-  version "3.5.1"
-  resolved "https://registry.yarnpkg.com/mocha/-/mocha-3.5.1.tgz#9b6d13ac1ccf957edd16f2e439055734b1b60391"
+  version "3.5.3"
+  resolved "https://registry.yarnpkg.com/mocha/-/mocha-3.5.3.tgz#1e0480fe36d2da5858d1eb6acc38418b26eaa20d"
   dependencies:
     browser-stdout "1.3.0"
     commander "2.9.0"
@@ -711,15 +707,14 @@ regenerator-runtime@^0.11.0:
   resolved "https://registry.yarnpkg.com/regenerator-runtime/-/regenerator-runtime-0.11.0.tgz#7e54fe5b5ccd5d6624ea6255c3473be090b802e1"
 
 regex-cache@^0.4.2:
-  version "0.4.3"
-  resolved "https://registry.yarnpkg.com/regex-cache/-/regex-cache-0.4.3.tgz#9b1a6c35d4d0dfcef5711ae651e8e9d3d7114145"
+  version "0.4.4"
+  resolved "https://registry.yarnpkg.com/regex-cache/-/regex-cache-0.4.4.tgz#75bdc58a2a1496cec48a12835bc54c8d562336dd"
   dependencies:
     is-equal-shallow "^0.1.3"
-    is-primitive "^2.0.0"
 
 remove-trailing-separator@^1.0.1:
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/remove-trailing-separator/-/remove-trailing-separator-1.0.2.tgz#69b062d978727ad14dc6b56ba4ab772fd8d70511"
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/remove-trailing-separator/-/remove-trailing-separator-1.1.0.tgz#c24bce2a283adad5bc3f58e0d48249b92379d8ef"
 
 repeat-element@^1.1.2:
   version "1.1.2"
@@ -736,10 +731,10 @@ repeating@^2.0.0:
     is-finite "^1.0.0"
 
 rollup-plugin-fable@^1.0.7:
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/rollup-plugin-fable/-/rollup-plugin-fable-1.1.0.tgz#3946eba62b10838f55b547cea42f230467b9338d"
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/rollup-plugin-fable/-/rollup-plugin-fable-1.1.1.tgz#22dc14212b67dede148f1983dde0a5a139cdbfbe"
   dependencies:
-    fable-utils "^1.0.1"
+    fable-utils "^1.0.4"
     rollup-pluginutils "2.0.1"
 
 rollup-pluginutils@2.0.1:
